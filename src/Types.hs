@@ -10,9 +10,8 @@ module Types
 ------------------------------------------------------------------------------
 import Data.Aeson hiding (Error)
 import Data.Aeson.Types (Pair)
-import Data.Int (Int64)
 import Data.Text (Text)
-import qualified Data.Text as T
+import Data.Word (Word, Word64)
 ------------------------------------------------------------------------------
 
 
@@ -101,8 +100,10 @@ instance ToJSON SubAccountIdentifierMetaData where
 ------------------------------------------------------------------------------
 
 -- Uniquely identifies a block in a particular network
+-- TODO: how to define a chain?
+-- TODO: check to make sure that whenever a Block is returned, ntwork idetifier is also returned.
 data BlockIdentifier = BlockIdentifier
-  { _blockIdentifier_index :: PositiveInt64
+  { _blockIdentifier_index :: Word64
   -- ^ The block height
   , _blockIdentifier_hash :: Text
   }
@@ -118,7 +119,7 @@ instance ToJSON BlockIdentifier where
 -- the index or hash.
 -- If both are ommitted, assumes the client is requesting the current block.
 data PartialBlockIdentifier = PartialBlockIdentifier
-  { _partialBlockIdentifier_index :: Maybe PositiveInt64
+  { _partialBlockIdentifier_index :: Maybe Word64
   , _partialBlockIdentifier_hash :: Maybe Text
   }
 
@@ -130,7 +131,7 @@ instance ToJSON PartialBlockIdentifier where
       (Nothing, Just h) -> object (hashPair h)
       (Just i, Just h) -> object $ (indexPair i) ++ (hashPair h)
     where
-      indexPair :: PositiveInt64 -> [Pair]
+      indexPair :: Word64 -> [Pair]
       indexPair i = [ "index" .= i ]
       hashPair :: Text -> [Pair]
       hashPair h = [ "hash" .= h ]
@@ -141,19 +142,18 @@ instance ToJSON PartialBlockIdentifier where
 data NetworkIdentifier = NetworkIdentifier
   { _networkIdentifier_blockchain :: Text
   -- ^ Name of the blockchain
-  -- ^ TODO: "kadena", "kadena_mainnet"?
+  -- ^ TODO: "kadena"
 
   , _networkIdentifier_network :: Text
   -- ^ Specific chain-id or network identifier
   -- ^ TODO: up to client to determine which network-specific identifier is mainnet or testnet?
-  -- ^ TODO: should this be "mainnet" or the chain-id? Could always put the chain id in
-  --         the subnetwork identifier.
   
   , _networkIdentifier_subNetworkIdentifier :: Maybe SubNetworkIdentifier
   -- ^ Sharded state identifier used to query object on specific shard
   -- ^ Required for all sharded blockchains
-  -- ^ TODO: Is Kadena a sharded blockchain?
-  -- ^ TODO: how are they expecting optional values? Null or just missing?
+  -- ^ TODO: Is Kadena a sharded blockchain? YES
+  -- ^ TODO: how are they expecting optional values? Null or just missing? They just the field to be missing!
+  --         Javascript clients may assume existance of a field key is important. Without noticing if its null.
   }
 
 instance ToJSON NetworkIdentifier where
@@ -170,7 +170,9 @@ instance ToJSON NetworkIdentifier where
 -- TODO: optional?
 data SubNetworkIdentifier = SubNetworkIdentifier
   { _subNetworkIdentifier_network :: Text
+  -- ^ TODO: "1". Represent chain number. Chains will always be numbers.
   , _subNetworkIdentifier_metadata :: Maybe SubNetworkIdentifierMetaData
+  -- ^ TODO: "mainnet01"? Policy question. Do the care about forks? 
   }
 instance ToJSON SubNetworkIdentifier where
   toJSON (SubNetworkIdentifier sid someMeta) =
@@ -193,10 +195,11 @@ instance ToJSON SubNetworkIdentifierMetaData where
 -- Uniquely identifies an operation within a transaction
 -- TODO: No idea what an operation refers to?
 -- TODO: Docs mention that not all blockchains have a notion of an operation index.
+-- TODO: They don't specify what Operations are. Free
 data OperationIdentifier = OperationIdentifier
-  { _operationIdentifier_index :: PositiveInt64
+  { _operationIdentifier_index :: Word64
   -- ^ Unique identifier for each operation within a transaction
-  , _operationIdentifier_network_index :: Maybe PositiveInt64
+  , _operationIdentifier_networkIndex :: Maybe Word64
   -- ^ Optional network index associated with a given operation index
   -- ^ Example: Bitcoin uses a network index to identity which UTXO was used in a
   --            transaction.
@@ -222,7 +225,7 @@ data TransactionIdentifier = TransactionIdentifier
   { _transactionIdentifier_hash :: Text
   -- ^ Any transactions that are attributable only to a block (i.e. block event)
   --   should use the hash of the block as the identifier.
-  -- ^ TODO: Does Kadena have transactions attributable only to a block?
+  -- ^ TODO: Does Kadena have transactions attributable only to a block? I don't think so.
   }
 
 instance ToJSON TransactionIdentifier where
@@ -259,12 +262,14 @@ data Amount = Amount
   { _amount_value :: Text
   -- ^ Value of the transaction in atomic units represented as an
   --   arbitrary-sized signed integer.
-  -- ^ Example: 1 BTC would be represented by a value of 100000000
+  -- ^ Example: 1 BTC would be represented by a value of 100,000,000
   -- ^ TODO: don't understand the example?
+  -- ^ TODO: We should model gas payments as KDA not gas units. And negative amounts refers to money leaving. Hence why they have "signed integer".
   , _amount_currency :: Currency
   -- ^ Composed of a canonical Symbol and Decimals
   -- ^ This Decimals value is used to convert an Amount.Value from atomic
   --   units (Satoshis) to standard units (Bitcoins).
+  -- ^ TODO: Satoshis are the smallest denomination of bitcoin. In US, cents == Satoshis.
   -- ^ TODO: Are atomic units Satoshis? What's the conversion between that and KDA/BTC?
   , _amount_metadata :: Maybe AmountMetaData
   }
@@ -293,7 +298,7 @@ data Block = Block
   -- ^ A unique block in a particular network
   , _block_parentBlockIdentifier :: BlockIdentifier
   -- ^ Parent block identifier
-  , _block_timestamp :: PositiveInt64
+  , _block_timestamp :: Word64
   -- ^ Timestamp of the block in milliseconds since the Unix Epoch
   , _block_transactions :: [Transaction]
   , _block_metadata :: Maybe BlockMetaData
@@ -325,7 +330,7 @@ instance ToJSON BlockMetaData where
 data Currency = Currency
   { _currency_symbol :: Text
   -- ^ Canonical symbol associated with a currency
-  , _currency_decimals :: PositiveInt
+  , _currency_decimals :: Word
   -- ^ Number of decimal places in the standard unit representation of the amount
   -- ^ Example: BTC has 8 decimals.
   -- ^ NOTE: It's not possible to represent the value of some currency in atomic units
@@ -358,6 +363,10 @@ instance ToJSON CurrencyMetaData where
 -- Operations contain all balance-changing information within a transaction.
 -- They are always one-sided (only affect 1 AccountIdentifier) and can succeed
 -- or fail idependently from a Transaction.
+-- NOTE: A tx can succeed but you
+-- For every transaction that occurrs, there's at least two transaction.
+-- The gas payment leaving, the miner getting rewards, and coinbase.
+-- coinbase (system), all of the gas limit * price withdrawn from the user (atomic), (pact) *money comes out from tx (atomic) optional*, gas payment to miner (atomic), gas refund to gas payer (optional) 0 (atomic).
 data Operation = Operation
   { _operation_operationIdentifier :: OperationIdentifier
   -- ^ Uniquely identifies an operation within a transaction
@@ -374,10 +383,11 @@ data Operation = Operation
   --   block data.
   -- Example: "Transfer"
   -- TODO: Is "NetworkStatus" a typo? Does it mean Allow's operationTypes?
+  --       They meant NetworkOptionsResponse.
   , _operation_status :: Text
   -- ^ The network-specific status of the operation.
   -- ^ Status is not defined on the transaction object because blockchains with
-  --   smart contracts may have trnasaction that particually apply.
+  --   smart contracts may have tranasaction that particually apply.
   -- ^ Blockchains with atomic transactions (all operations succeed or all fail)
   --   will have the same status for each operation.
   -- ^ Example: "Reverted"
@@ -435,6 +445,9 @@ data Transaction = Transaction
   -- ^ TODO: Does the NOTE mean that cross-chain transactions should include the
   --         the transaction id of the transaction that burned in the previous chain?
   --         Are there other examples of "related transactions"?
+  --         If this tx is the receive one, include the tx id from the initial cross-chain.
+  --         Pacts in general are related transactions.
+  -- ^ TODO: the list of operations, we need to show the changes in account balance. 
   }
 
 instance ToJSON Transaction where
@@ -459,7 +472,7 @@ instance ToJSON TransactionMetaData where
 
 -- Enriched HTTP node error
 data Error = Error
-  { _error_code :: PositiveInt
+  { _error_code :: Word
   -- ^ Network-specific error code
   -- ^ Can be equivalent to an HTTP status code
   , _error_message :: Text
@@ -490,6 +503,7 @@ data OperationStatus = OperationStatus
   , _operationStatus_successful :: Bool
   -- ^ Whether an operation is considered successful
   -- ^ Set to true if the Operation.Amount should affect the Operation.Account
+  -- ^ TODO: whether an operation affects the amount in an Account?
   }
 
 instance ToJSON OperationStatus where
@@ -562,6 +576,11 @@ instance ToJSON VersionMetaData where
 -- Requests and Responses --
 ------------------------------------------------------------------------------
 
+-- TODO:
+-- All the Request types should have FromJSON.
+-- All Response should have ToJSON.
+
+
 -- Utilized to make a balance request on the /account/balance endpoint.
 -- NOTE: If a blockIdentifier is populated, a historical balance query
 --       should be performed.
@@ -618,7 +637,7 @@ instance ToJSON AccountBalanceResponseMetaData where
 
 ------------------------------------------------------------------------------
 
--- Utilized to make ablock request on the /block endpoint
+-- Utilized to make a block request on the /block endpoint
 data BlockRequest = BlockRequest
  { _blockRequest_networkIdentifier :: NetworkIdentifier
  , _blockRequest_blockIdentifier :: PartialBlockIdentifier
@@ -634,6 +653,7 @@ instance ToJSON BlockRequest where
 -- of other transactions to fetch.
 -- TODO: What's a partially-populated block??
 --       Why do the other transactions have to be fetched?
+--       You can send the block with all the transactions in it, or just the transaction hash.
 data BlockResponse = BlockResponse
   { _blockResponse_block :: Block
   -- ^ Array of Transactions that occurred at a particular block
@@ -899,7 +919,7 @@ instance ToJSON NetworkRequestMetaData where
 -- Contains basic information about the node's view of a blockchain network
 data NetworkStatusResponse = NetworkStatusResponse
   { _NetworkStatusResponse_currentBlockIdentifier :: BlockIdentifier
-  , _NetworkStatusResponse_currentBlockTimestamp :: PositiveInt64
+  , _NetworkStatusResponse_currentBlockTimestamp :: Word64
   -- ^ Timestamp of the block in milliseconds since the Unix Epoch.
   , _NetworkStatusResponse_genesisBlockIdentifier :: BlockIdentifier
   , _NetworkStatusResponse_peers :: [Peer]
@@ -911,23 +931,3 @@ instance ToJSON NetworkStatusResponse where
            , "current_block_timestamp" .= currBlockTime
            , "genesis_block_identifier" .= genesis
            , "peers" .= peers ]
-
-------------------------------------------------------------------------------
--- Helper Types --
-------------------------------------------------------------------------------
-
-newtype PositiveInt = PositiveInt Int
-  deriving ToJSON
-
-positiveInt :: (Integral a, Show a) => a -> Either Text PositiveInt
-positiveInt i
-  | (i >= 0) = Right $ PositiveInt $ fromIntegral i
-  | otherwise = Left $ T.pack $ "expected zero or non-zero value, but received " ++ show i
-
-newtype PositiveInt64 = PositiveInt64 Int64
-  deriving ToJSON
-
-positiveInt64 :: (Integral a, Show a) => a -> Either Text PositiveInt64
-positiveInt64 i
-  | (i >= 0) = Right $ PositiveInt64 $ fromIntegral i
-  | otherwise = Left $ T.pack $ "expected zero or non-zero value, but received " ++ show i
