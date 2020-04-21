@@ -70,7 +70,7 @@ instance ToJSON AccountIdentifier where
 -- TODO: what information to include here?
 data AccountIdentifierMetaData
 instance ToJSON AccountIdentifierMetaData where
-  toJSON = undefined
+  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
@@ -96,7 +96,7 @@ instance ToJSON SubAccountIdentifier where
 -- TODO: optional?
 data SubAccountIdentifierMetaData
 instance ToJSON SubAccountIdentifierMetaData where
-  toJSON = undefined
+  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
@@ -185,7 +185,7 @@ instance ToJSON SubNetworkIdentifier where
 -- TODO: optional?
 data SubNetworkIdentifierMetaData
 instance ToJSON SubNetworkIdentifierMetaData where
-  toJSON = undefined
+  toJSON _ = object []
 
 
 ------------------------------------------------------------------------------
@@ -282,7 +282,7 @@ instance ToJSON Amount where
 -- TODO: optional?
 data AmountMetaData
 instance ToJSON AmountMetaData where
-  toJSON = undefined
+  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
@@ -315,7 +315,7 @@ instance ToJSON Block where
 
 data BlockMetaData
 instance ToJSON BlockMetaData where
-  toJSON = undefined
+  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
@@ -351,7 +351,7 @@ instance ToJSON Currency where
 -- TODO: optional?
 data CurrencyMetaData
 instance ToJSON CurrencyMetaData where
-  toJSON = undefined
+  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
@@ -419,7 +419,7 @@ instance ToJSON Operation where
 -- TODO: optional
 data OperationMetaData
 instance ToJSON OperationMetaData where
-  toJSON = undefined
+  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
@@ -450,7 +450,7 @@ instance ToJSON Transaction where
 -- TODO: Optional?
 data TransactionMetaData
 instance ToJSON TransactionMetaData where
-  toJSON = undefined
+  toJSON _ = object []
 
 
 ------------------------------------------------------------------------------
@@ -518,7 +518,7 @@ instance ToJSON Peer where
 -- TODO: optional?
 data PeerMetaData
 instance ToJSON PeerMetaData where
-  toJSON = undefined
+  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
@@ -556,7 +556,7 @@ instance ToJSON Version where
 -- TODO: optional?
 data VersionMetaData
 instance ToJSON VersionMetaData where
-  toJSON = undefined
+  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 -- Requests and Responses --
@@ -614,7 +614,7 @@ instance ToJSON AccountBalanceResponse where
 -- TODO: Optional?
 data AccountBalanceResponseMetaData
 instance ToJSON AccountBalanceResponseMetaData where
-  toJSON = undefined
+  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
@@ -708,7 +708,7 @@ instance ToJSON ConstructionMetadataRequest where
 -- TODO
 data ConstructionMetadataOptions
 instance ToJSON ConstructionMetadataOptions where
-  toJSON = undefined
+  toJSON _ = object []
 
 
 -- Returns network-specific metadata used for transaction construction.
@@ -726,7 +726,7 @@ instance ToJSON ConstructionMetadataResponse where
 -- TODO
 data ConstructionMetadataResponseMetaData
 instance ToJSON ConstructionMetadataResponseMetaData where
-  toJSON = undefined
+  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
@@ -763,7 +763,7 @@ instance ToJSON ConstructionSubmitResponse where
 -- TODO: Optional?
 data ConstructionSubmitResponseMetaData
 instance ToJSON ConstructionSubmitResponseMetaData where
-  toJSON = undefined
+  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
@@ -823,7 +823,7 @@ instance ToJSON MempoolTransactionResponse where
 -- TODO: Optional?
 data MempoolTransactionResponseMetaData
 instance ToJSON MempoolTransactionResponseMetaData where
-  toJSON = undefined
+  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
@@ -842,7 +842,7 @@ instance ToJSON MetadataRequest where
 -- TODO
 data MetadataRequestMetaData
 instance ToJSON MetadataRequestMetaData where
-  toJSON = undefined
+  toJSON _ = object []
 
 
 ------------------------------------------------------------------------------
@@ -892,7 +892,7 @@ instance ToJSON NetworkRequest where
 -- TODO: optional?
 data NetworkRequestMetaData
 instance ToJSON NetworkRequestMetaData where
-  toJSON = undefined
+  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
