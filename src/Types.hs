@@ -8,7 +8,7 @@ module Types where
 import Data.Aeson hiding (Error)
 import Data.Aeson.Types (Pair)
 import Data.Text (Text)
-import Data.Word (Word, Word64)
+import Data.Word (Word64)
 ------------------------------------------------------------------------------
 
 
@@ -64,7 +64,7 @@ instance ToJSON AccountIdentifier where
       metaPair m = [ "metadata" .= m ]
 
 instance FromJSON AccountIdentifier where
-  parseJSON (Object o) = do
+  parseJSON = withObject "AccountIdentifier" $ \o -> do
     add <- o .: "address"
     subAcct <- o .:? "sub_account"
     meta <- o .:? "metadata"
@@ -73,7 +73,6 @@ instance FromJSON AccountIdentifier where
       , _accountIdentifier_subAccount = subAcct
       , _accountIdentifier_metadata = meta
       }
-  parseJSON _ = fail "AccountIdentifier JSON representation must be an object"
 
 
 -- TODO: what information to include here?
@@ -81,9 +80,8 @@ data AccountIdentifierMetaData = AccountIdentifierMetaData ()
 instance ToJSON AccountIdentifierMetaData where
   toJSON _ = object []
 instance FromJSON AccountIdentifierMetaData where
-  parseJSON (Object _) = do
+  parseJSON = withObject "AccountIdentifierMetaData" $ \_ -> do
     return $ AccountIdentifierMetaData ()
-  parseJSON _ = fail "AccountIdentifierMetaData JSON representation must be an object"
 
 
 ------------------------------------------------------------------------------
@@ -108,14 +106,13 @@ instance ToJSON SubAccountIdentifier where
       metaPair m = [ "metadata" .= m ]
 
 instance FromJSON SubAccountIdentifier where
-  parseJSON (Object o) = do
+  parseJSON = withObject "SubAccountIdentifier" $ \o -> do
     add <- o .: "address"
     meta <- o .:? "metadata"
     return $ SubAccountIdentifier
       { _subAccountIdentifier_address = add
       , _subAccountIdentifier_metadata = meta
       }
-  parseJSON _ = fail "SubAccountIdentifier JSON representation must be an object"
 
 
 -- TODO: optional?
@@ -123,9 +120,8 @@ data SubAccountIdentifierMetaData = SubAccountIdentifierMetaData ()
 instance ToJSON SubAccountIdentifierMetaData where
   toJSON _ = object []
 instance FromJSON SubAccountIdentifierMetaData where
-  parseJSON (Object _) = do
+  parseJSON = withObject "SubAccountIdentifierMetaData" $ \_ -> do
     return $ SubAccountIdentifierMetaData ()
-  parseJSON _ = fail "SubAccountIdentifierMetaData JSON representation must be an object"
 
 ------------------------------------------------------------------------------
 
@@ -144,14 +140,13 @@ instance ToJSON BlockIdentifier where
            , "hash" .= hsh ]
 
 instance FromJSON BlockIdentifier where
-  parseJSON (Object o) = do
+  parseJSON = withObject "BlockIdentifier" $ \o -> do
     idx <- o .: "index"
     hash <- o .: "hash"
     return $ BlockIdentifier
       { _blockIdentifier_index = idx
       , _blockIdentifier_hash = hash
       }
-  parseJSON _ = fail "BlockIdentifier JSON representation must be an object"
 
 ------------------------------------------------------------------------------
 
@@ -164,14 +159,13 @@ data PartialBlockIdentifier = PartialBlockIdentifier
   }
 
 instance FromJSON PartialBlockIdentifier where
-  parseJSON (Object o) = do
+  parseJSON = withObject "PartialBlockIdentifier" $ \o -> do
     idx <- o .:? "index"
     hsh <- o .:? "hash"
     return $ PartialBlockIdentifier
       { _partialBlockIdentifier_index = idx
       , _partialBlockIdentifier_hash = hsh
       }
-  parseJSON _ = fail "PartialBlockIdentifier JSON representation must be an object"
 
 ------------------------------------------------------------------------------
 
@@ -203,7 +197,7 @@ instance ToJSON NetworkIdentifier where
       subNetIdPair s = [ "sub_network_identifier" .= s ]
 
 instance FromJSON NetworkIdentifier where
-  parseJSON (Object o) = do
+  parseJSON = withObject "NetworkIdentifier" $ \o -> do
     bid <- o .: "blockchain"
     netId <- o .: "network"
     subNetId <- o .:? "sub_network_identifier"
@@ -212,7 +206,6 @@ instance FromJSON NetworkIdentifier where
       , _networkIdentifier_network = netId
       , _networkIdentifier_subNetworkIdentifier = subNetId
       }
-  parseJSON _ = fail "NetworkIdentifier JSON representation must be an object"
 
 ------------------------------------------------------------------------------
   
@@ -234,14 +227,13 @@ instance ToJSON SubNetworkIdentifier where
       metaPair m = [ "metadata" .= m ]
 
 instance FromJSON SubNetworkIdentifier where
-  parseJSON (Object o) = do
+  parseJSON = withObject "SubNetworkIdentifier" $ \o -> do
     sid <- o .: "network"
     m <- o .:? "metadata"
     return $ SubNetworkIdentifier
       { _subNetworkIdentifier_network = sid
       , _subNetworkIdentifier_metadata = m
       }
-  parseJSON _ = fail "SubNetworkIdentifier JSON representation must be an object"
 
 
 -- TODO: optional?
@@ -249,9 +241,8 @@ data SubNetworkIdentifierMetaData = SubNetworkIdentifierMetaData ()
 instance ToJSON SubNetworkIdentifierMetaData where
   toJSON _ = object []
 instance FromJSON SubNetworkIdentifierMetaData where
-  parseJSON (Object _) = do
+  parseJSON = withObject "SubNetworkIdentifierMetaData" $ \_ -> do
     return $ SubNetworkIdentifierMetaData ()
-  parseJSON _ = fail "SubNetworkIdentifierMetaData JSON representation must be an object"
 
 ------------------------------------------------------------------------------
 
@@ -296,10 +287,9 @@ instance ToJSON TransactionIdentifier where
     object [ "hash" .= h ]
 
 instance FromJSON TransactionIdentifier where
-  parseJSON (Object o) = do
+  parseJSON = withObject "TransactionIdentifier" $ \o -> do
     hash <- o .: "hash"
     return $ TransactionIdentifier hash
-  parseJSON _ = fail "TransactionIdentifier JSON representation must be an object"
 
 
 ------------------------------------------------------------------------------
@@ -667,7 +657,7 @@ data AccountBalanceRequest = AccountBalanceRequest
   }
 
 instance FromJSON AccountBalanceRequest where
-  parseJSON (Object o) = do
+  parseJSON = withObject "AccountBalanceRequest" $ \o -> do
     netId <- o .: "network_identifier"
     acctId <- o .: "account_identifier"
     bi <- o .:? "block_identifier"
@@ -676,7 +666,6 @@ instance FromJSON AccountBalanceRequest where
       , _accountBalanceRequest_accountIdentifier = acctId
       , _accountBalanceRequest_blockIdentifier = bi
       }
-  parseJSON _ = fail "AccountBalanceRequest JSON representation must be an object"
 
 
 -- Returned on the /account/balance endpoint
@@ -716,14 +705,13 @@ data BlockRequest = BlockRequest
  }
 
 instance FromJSON BlockRequest where
-  parseJSON (Object o) = do
+  parseJSON = withObject "BlockRequest" $ \o -> do
     netId <- o .: "network_identifier"
     bId <- o .: "block_identifier"
     return $ BlockRequest
       { _blockRequest_networkIdentifier = netId
       , _blockRequest_blockIdentifier = bId
       }
-  parseJSON _ = fail "BlockRequest JSON representation must be an object"
 
 
 -- Includes a fully-populated block or a partially-populated block with a list
@@ -765,7 +753,7 @@ data BlockTransactionRequest = BlockTransactionRequest
   }
 
 instance FromJSON BlockTransactionRequest where
-  parseJSON (Object o) = do
+  parseJSON = withObject "BlockTransactionRequest" $ \o -> do
     netId <- o .: "network_identifier"
     bId <- o .: "block_identifier"
     txId <- o .: "transaction_identifier"
@@ -774,7 +762,6 @@ instance FromJSON BlockTransactionRequest where
       , _blockTransactionRequest_blockIdentifier = bId
       , _blockTransactionRequest_transactionIdentifier = txId
       }
-  parseJSON _ = fail "BlockTransactionRequest JSON representation must be an object"
 
 
 -- Contains information about a block transaction
@@ -804,22 +791,20 @@ data ConstructionMetadataRequest = ConstructionMetadataRequest
   }
 
 instance FromJSON ConstructionMetadataRequest where
-  parseJSON (Object o) = do
+  parseJSON = withObject "ConstructionMetadataRequest" $ \o -> do
     netId <- o .: "network_identifier"
     opts <- o .: "options"
     return $ ConstructionMetadataRequest
       { _constructionMetadataRequest_networkIdentifier = netId
       , _constructionMetadataRequest_options = opts
       }
-  parseJSON _ = fail "ConstructionMetadataRequest JSON representation must be an object"
 
 
 -- TODO
 data ConstructionMetadataOptions = ConstructionMetadataOptions ()
 instance FromJSON ConstructionMetadataOptions where
-  parseJSON (Object _) = do
+  parseJSON = withObject "ConstructionMetadataOptions" $ \_ -> do
     return $ ConstructionMetadataOptions ()
-  parseJSON _ = fail "ConstructionMetadataOptions JSON representation must be an object"
 
 
 -- Returns network-specific metadata used for transaction construction.
@@ -849,14 +834,13 @@ data ConstructionSubmitRequest = ConstructionSubmitRequest
   }
 
 instance FromJSON ConstructionSubmitRequest where
-  parseJSON (Object o) = do
+  parseJSON = withObject "ConstructionSubmitRequest" $ \o -> do
     netId <- o .: "network_identifier"
     sig <- o .: "signed_transaction"
     return $ ConstructionSubmitRequest
       { _constructionSubmitRequest_networkIdentifier = netId
       , _constructionSubmitRequest_signedTransaction = sig
       }
-  parseJSON _ = fail "ConstructionSubmitRequest JSON representation must be an object"
 
 
 -- Contains the transaction identifier of a submitted transaction that was
@@ -890,10 +874,9 @@ data MempoolRequest = MempoolRequest
   }
 
 instance FromJSON MempoolRequest where
-  parseJSON (Object o) = do
+  parseJSON = withObject "MempoolRequest" $ \o -> do
     netId <- o .: "network_identifier"
     return $ MempoolRequest netId
-  parseJSON _ = fail "MempoolRequest JSON representation must be an object"
 
 
 -- Contains all transaction identifiers in the mempool for a particular network.
@@ -915,14 +898,13 @@ data MempoolTransactionRequest = MempoolTransactionRequest
   }
 
 instance FromJSON MempoolTransactionRequest where
-  parseJSON (Object o) = do
+  parseJSON = withObject "MempoolTransactionRequest" $ \o -> do
     netId <- o .: "network_identifier"
     tx <- o .: "transaction_identifier"
     return $ MempoolTransactionRequest
       { _mempoolTransactionRequest_networkIdentifier = netId
       , _mempoolTransactionRequest_transactionIdentifier = tx
       }
-  parseJSON _ = fail "MempoolTransactionRequest JSON representation must be an object"
 
 
 -- Contains an estimate of a mempool transaction.
@@ -957,17 +939,15 @@ data MetadataRequest = MetadataRequest
   }
 
 instance FromJSON MetadataRequest where
-  parseJSON (Object o) = do
+  parseJSON = withObject "MetadataRequest" $ \o -> do
     m <- o .:? "metadata"
     return $ MetadataRequest m
-  parseJSON _ = fail "MetadataRequest JSON representation must be an object"
 
 -- TODO
 data MetadataRequestMetaData = MetadataRequestMetaData ()
 instance FromJSON MetadataRequestMetaData where
-  parseJSON (Object _) = do
+  parseJSON = withObject "MetadataRequestMetaData" $ \_ -> do
     return $ MetadataRequestMetaData ()
-  parseJSON _ = fail $ "MetadataRequestMetaData JSON representation must be an object"
 
 
 ------------------------------------------------------------------------------
@@ -1006,21 +986,19 @@ data NetworkRequest = NetworkRequest
   }
 
 instance FromJSON NetworkRequest where
-  parseJSON (Object o) = do
+  parseJSON = withObject "NetworkRequest" $ \o -> do
     netId <- o .: "network_identifier"
     m <- o .:? "metadata"
     return $ NetworkRequest
       { _networkRequest_networkIdentifier = netId
       , _networkRequest_metadata = m
       }
-  parseJSON _ = fail "NetworkRequest JSON representation must be an object"
 
 -- TODO: optional?
 data NetworkRequestMetaData = NetworkRequestMetaData ()
 instance FromJSON NetworkRequestMetaData where
-  parseJSON (Object _) = do
+  parseJSON = withObject "NetworkRequestMetaData" $ \_ -> do
     return $ NetworkRequestMetaData ()
-  parseJSON _ = fail "NetworkRequestMetaData JSON representation must be an object"
 
 ------------------------------------------------------------------------------
 
