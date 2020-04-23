@@ -1,8 +1,7 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
 
-module Types where
-
+module Rosetta where
 
 ------------------------------------------------------------------------------
 import Data.Aeson hiding (Error)
@@ -10,10 +9,6 @@ import Data.Aeson.Types (Pair)
 import Data.Text (Text)
 import Data.Word (Word64)
 ------------------------------------------------------------------------------
-
-
--- Source: https://djr6hkgq2tjcs.cloudfront.net/docs/Reference.html
-
 
 ------------------------------------------------------------------------------
 -- Identifiers --
@@ -37,8 +32,7 @@ data AccountIdentifier = AccountIdentifier
   --         Seems to be the case based on comment here:
   --            "If an account has a balance for each AccountIdentifier describing
   --             it (ex: an ERC-20 token balance on a few smart contracts)"
-  --         Source: https://djr6hkgq2tjcs.cloudfront.net/docs/models/AccountBalanceResponse.html
-  
+
   , _accountIdentifier_metadata :: Maybe AccountIdentifierMetaData
   -- ^ If blockchain allows using a username model, the public key(s) owned
   --   by this address should be specified in metadata.
@@ -178,7 +172,7 @@ data NetworkIdentifier = NetworkIdentifier
   , _networkIdentifier_network :: Text
   -- ^ Specific chain-id or network identifier
   -- ^ TODO: up to client to determine which network-specific identifier is mainnet or testnet?
-  
+
   , _networkIdentifier_subNetworkIdentifier :: Maybe SubNetworkIdentifier
   -- ^ Sharded state identifier used to query object on specific shard
   -- ^ Required for all sharded blockchains
@@ -208,13 +202,13 @@ instance FromJSON NetworkIdentifier where
       }
 
 ------------------------------------------------------------------------------
-  
+
 -- TODO: optional?
 data SubNetworkIdentifier = SubNetworkIdentifier
   { _subNetworkIdentifier_network :: Text
   -- ^ TODO: "1". Represent chain number. Chains will always be numbers.
   , _subNetworkIdentifier_metadata :: Maybe SubNetworkIdentifierMetaData
-  -- ^ TODO: "mainnet01"? Policy question. Do the care about forks? 
+  -- ^ TODO: "mainnet01"? Policy question. Do the care about forks?
   }
 
 instance ToJSON SubNetworkIdentifier where
@@ -462,7 +456,7 @@ instance ToJSON Operation where
       relatedOperationsPair :: Maybe [OperationIdentifier] -> [Pair]
       relatedOperationsPair Nothing = []
       relatedOperationsPair (Just ops) = [ "related_operations" .= ops ]
-      
+
       accountPair :: Maybe AccountIdentifier -> [Pair]
       accountPair Nothing = []
       accountPair (Just acct) = [ "account" .= acct ]
@@ -506,7 +500,7 @@ data Transaction = Transaction
   --         Are there other examples of "related transactions"?
   --         If this tx is the receive one, include the tx id from the initial cross-chain.
   --         Pacts in general are related transactions.
-  -- ^ TODO: the list of operations, we need to show the changes in account balance. 
+  -- ^ TODO: the list of operations, we need to show the changes in account balance.
   }
 
 instance ToJSON Transaction where
