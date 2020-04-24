@@ -4,7 +4,7 @@
 module Rosetta where
 
 ------------------------------------------------------------------------------
-import Data.Aeson hiding (Error)
+import Data.Aeson
 import Data.Aeson.Types (Pair)
 import Data.Text (Text)
 import Data.Word (Word64)
@@ -298,7 +298,7 @@ data Allow = Allow
   -- ^ All Operation.Status this implementation supports
   , _allow_operationTypes :: [Text]
   -- ^ All Operation.Type this implementation supports
-  , _allow_errors :: [Error]
+  , _allow_errors :: [RosettaError]
   -- ^ All Errors that this implementation could return
   }
 
@@ -524,7 +524,7 @@ instance ToJSON TransactionMetaData where
 ------------------------------------------------------------------------------
 
 -- Enriched HTTP node error
-data Error = Error
+data RosettaError = RosettaError
   { _error_code :: Word
   -- ^ Network-specific error code
   -- ^ Can be equivalent to an HTTP status code
@@ -535,8 +535,8 @@ data Error = Error
   -- ^ Indicates whether the request COULD succeed if submitted again
   }
 
-instance ToJSON Error where
-  toJSON (Error c msg b) =
+instance ToJSON RosettaError where
+  toJSON (RosettaError c msg b) =
     object [ "code" .= c
            , "message" .= msg
            , "retriable" .= b ]
@@ -567,13 +567,13 @@ instance ToJSON OperationStatus where
 ------------------------------------------------------------------------------
 
 -- A node's peer
-data Peer = Peer
+data RosettaNodePeer = RosettaNodePeer
   { _peer_peerId :: Text
   , _peer_metadata :: Maybe PeerMetaData
   }
 
-instance ToJSON Peer where
-  toJSON (Peer i someMeta) =
+instance ToJSON RosettaNodePeer where
+  toJSON (RosettaNodePeer i someMeta) =
     case someMeta of
       Nothing -> object restOfPairs
       Just m -> object (restOfPairs ++ metaPair m)
@@ -591,7 +591,7 @@ instance ToJSON PeerMetaData where
 
 -- Utilized to inform the client of the versions of different components of the
 -- Rosetta implementation.
-data Version = Version
+data RosettaNodeVersion = RosettaNodeVersion
   { _version_rosettaVersion :: Text
   -- ^ Version of the Rosetta interface the implementation adheres to
   -- ^ Useful for clients looking to reliably parse responses
@@ -605,8 +605,8 @@ data Version = Version
   --   services
   }
 
-instance ToJSON Version where
-  toJSON (Version r n someMiddle someMeta) =
+instance ToJSON RosettaNodeVersion where
+  toJSON (RosettaNodeVersion r n someMiddle someMeta) =
     case (someMiddle, someMeta) of
       (Nothing, Nothing) -> object restOfPairs
       (Just mi, Nothing) -> object (restOfPairs ++ middlePair mi)
@@ -962,7 +962,7 @@ instance ToJSON NetworkListResponse where
 -- Contains information about the versioning of the node and the allowed
 -- operation statuses, operation types, and errors.
 data NetworkOptionsResponse = NetworkOptionsResponse
-  { _networkOptionsResponse_version :: Version
+  { _networkOptionsResponse_version :: RosettaNodeVersion
   , _networkOptionsResponse_allow :: Allow
   }
 
@@ -1002,7 +1002,7 @@ data NetworkStatusResponse = NetworkStatusResponse
   , _NetworkStatusResponse_currentBlockTimestamp :: Word64
   -- ^ Timestamp of the block in milliseconds since the Unix Epoch.
   , _NetworkStatusResponse_genesisBlockIdentifier :: BlockIdentifier
-  , _NetworkStatusResponse_peers :: [Peer]
+  , _NetworkStatusResponse_peers :: [RosettaNodePeer]
   }
 
 instance ToJSON NetworkStatusResponse where
