@@ -1,4 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Rosetta where
@@ -70,7 +69,7 @@ instance FromJSON AccountIdentifier where
 
 
 -- TODO: what information to include here?
-data AccountIdentifierMetaData = AccountIdentifierMetaData ()
+newtype AccountIdentifierMetaData = AccountIdentifierMetaData ()
 instance ToJSON AccountIdentifierMetaData where
   toJSON _ = object []
 instance FromJSON AccountIdentifierMetaData where
@@ -110,7 +109,7 @@ instance FromJSON SubAccountIdentifier where
 
 
 -- TODO: optional?
-data SubAccountIdentifierMetaData = SubAccountIdentifierMetaData ()
+newtype SubAccountIdentifierMetaData = SubAccountIdentifierMetaData ()
 instance ToJSON SubAccountIdentifierMetaData where
   toJSON _ = object []
 instance FromJSON SubAccountIdentifierMetaData where
@@ -231,7 +230,7 @@ instance FromJSON SubNetworkIdentifier where
 
 
 -- TODO: optional?
-data SubNetworkIdentifierMetaData = SubNetworkIdentifierMetaData ()
+newtype SubNetworkIdentifierMetaData = SubNetworkIdentifierMetaData ()
 instance ToJSON SubNetworkIdentifierMetaData where
   toJSON _ = object []
 instance FromJSON SubNetworkIdentifierMetaData where
@@ -269,7 +268,7 @@ instance ToJSON OperationIdentifier where
 
 -- Uniquely identifies a transaction in a particular network and block
 -- or in the mempool.
-data TransactionIdentifier = TransactionIdentifier
+newtype TransactionIdentifier = TransactionIdentifier
   { _transactionIdentifier_hash :: Text
   -- ^ Any transactions that are attributable only to a block (i.e. block event)
   --   should use the hash of the block as the identifier.
@@ -759,7 +758,7 @@ instance FromJSON BlockTransactionRequest where
 
 
 -- Contains information about a block transaction
-data BlockTransactionResponse = BlockTransactionResponse
+newtype BlockTransactionResponse = BlockTransactionResponse
   { _blockTransactionResponse_transaction :: Transaction
   }
 
@@ -795,14 +794,14 @@ instance FromJSON ConstructionMetadataRequest where
 
 
 -- TODO
-data ConstructionMetadataOptions = ConstructionMetadataOptions ()
+newtype ConstructionMetadataOptions = ConstructionMetadataOptions ()
 instance FromJSON ConstructionMetadataOptions where
   parseJSON = withObject "ConstructionMetadataOptions" $ \_ -> do
     return $ ConstructionMetadataOptions ()
 
 
 -- Returns network-specific metadata used for transaction construction.
-data ConstructionMetadataResponse = ConstructionMetadataResponse
+newtype ConstructionMetadataResponse = ConstructionMetadataResponse
   { _constructionMetadataResponse_metadata :: ConstructionMetadataResponseMetaData
   -- ^ NOTE: It's likely that the client will not inspect this metadata before
   --         passing it to a client SDK that uses it for construction.
@@ -863,7 +862,7 @@ instance ToJSON ConstructionSubmitResponseMetaData where
 
 -- Utilized to retrieve all transaction identifiers in the mempool for a
 -- particular network on the /mempool endpoint.
-data MempoolRequest = MempoolRequest
+newtype MempoolRequest = MempoolRequest
   { _mempoolRequest_networkIdentifier :: NetworkIdentifier
   }
 
@@ -874,7 +873,7 @@ instance FromJSON MempoolRequest where
 
 
 -- Contains all transaction identifiers in the mempool for a particular network.
-data MempoolResponse = MempoolResponse
+newtype MempoolResponse = MempoolResponse
   { _mempoolResponse_transactionIdentifiers :: [TransactionIdentifier]
   }
 
@@ -928,7 +927,7 @@ instance ToJSON MempoolTransactionResponseMetaData where
 
 -- Utilized in any request where the only argument is optional metadata
 -- TODO: Which endpoint(s) use this?? I think its only used in /network/list
-data MetadataRequest = MetadataRequest
+newtype MetadataRequest = MetadataRequest
   { _metadataRequest_metadata :: Maybe MetadataRequestMetaData
   }
 
@@ -938,7 +937,7 @@ instance FromJSON MetadataRequest where
     return $ MetadataRequest m
 
 -- TODO
-data MetadataRequestMetaData = MetadataRequestMetaData ()
+newtype MetadataRequestMetaData = MetadataRequestMetaData ()
 instance FromJSON MetadataRequestMetaData where
   parseJSON = withObject "MetadataRequestMetaData" $ \_ -> do
     return $ MetadataRequestMetaData ()
@@ -948,7 +947,7 @@ instance FromJSON MetadataRequestMetaData where
 
 -- Contains all network identifiers that the node can server information for.
 -- The response from the /network/list endpoint
-data NetworkListResponse = NetworkListResponse
+newtype NetworkListResponse = NetworkListResponse
   { _networkListResponse_networkIdentifiers :: [NetworkIdentifier]
   }
 
@@ -989,7 +988,7 @@ instance FromJSON NetworkRequest where
       }
 
 -- TODO: optional?
-data NetworkRequestMetaData = NetworkRequestMetaData ()
+newtype NetworkRequestMetaData = NetworkRequestMetaData ()
 instance FromJSON NetworkRequestMetaData where
   parseJSON = withObject "NetworkRequestMetaData" $ \_ -> do
     return $ NetworkRequestMetaData ()
