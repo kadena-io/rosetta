@@ -1,10 +1,9 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Rosetta where
 
 ------------------------------------------------------------------------------
-import Data.Aeson hiding (Error)
+import Data.Aeson
 import Data.Aeson.Types (Pair)
 import Data.Text (Text)
 import Data.Word (Word64)
@@ -70,7 +69,7 @@ instance FromJSON AccountIdentifier where
 
 
 -- TODO: what information to include here?
-data AccountIdentifierMetaData = AccountIdentifierMetaData ()
+newtype AccountIdentifierMetaData = AccountIdentifierMetaData ()
 instance ToJSON AccountIdentifierMetaData where
   toJSON _ = object []
 instance FromJSON AccountIdentifierMetaData where
@@ -110,7 +109,7 @@ instance FromJSON SubAccountIdentifier where
 
 
 -- TODO: optional?
-data SubAccountIdentifierMetaData = SubAccountIdentifierMetaData ()
+newtype SubAccountIdentifierMetaData = SubAccountIdentifierMetaData ()
 instance ToJSON SubAccountIdentifierMetaData where
   toJSON _ = object []
 instance FromJSON SubAccountIdentifierMetaData where
@@ -231,7 +230,7 @@ instance FromJSON SubNetworkIdentifier where
 
 
 -- TODO: optional?
-data SubNetworkIdentifierMetaData = SubNetworkIdentifierMetaData ()
+newtype SubNetworkIdentifierMetaData = SubNetworkIdentifierMetaData ()
 instance ToJSON SubNetworkIdentifierMetaData where
   toJSON _ = object []
 instance FromJSON SubNetworkIdentifierMetaData where
@@ -269,7 +268,7 @@ instance ToJSON OperationIdentifier where
 
 -- Uniquely identifies a transaction in a particular network and block
 -- or in the mempool.
-data TransactionIdentifier = TransactionIdentifier
+newtype TransactionIdentifier = TransactionIdentifier
   { _transactionIdentifier_hash :: Text
   -- ^ Any transactions that are attributable only to a block (i.e. block event)
   --   should use the hash of the block as the identifier.
@@ -298,7 +297,7 @@ data Allow = Allow
   -- ^ All Operation.Status this implementation supports
   , _allow_operationTypes :: [Text]
   -- ^ All Operation.Type this implementation supports
-  , _allow_errors :: [Error]
+  , _allow_errors :: [RosettaError]
   -- ^ All Errors that this implementation could return
   }
 
@@ -524,7 +523,7 @@ instance ToJSON TransactionMetaData where
 ------------------------------------------------------------------------------
 
 -- Enriched HTTP node error
-data Error = Error
+data RosettaError = RosettaError
   { _error_code :: Word
   -- ^ Network-specific error code
   -- ^ Can be equivalent to an HTTP status code
@@ -535,8 +534,8 @@ data Error = Error
   -- ^ Indicates whether the request COULD succeed if submitted again
   }
 
-instance ToJSON Error where
-  toJSON (Error c msg b) =
+instance ToJSON RosettaError where
+  toJSON (RosettaError c msg b) =
     object [ "code" .= c
            , "message" .= msg
            , "retriable" .= b ]
@@ -567,13 +566,13 @@ instance ToJSON OperationStatus where
 ------------------------------------------------------------------------------
 
 -- A node's peer
-data Peer = Peer
+data RosettaNodePeer = RosettaNodePeer
   { _peer_peerId :: Text
   , _peer_metadata :: Maybe PeerMetaData
   }
 
-instance ToJSON Peer where
-  toJSON (Peer i someMeta) =
+instance ToJSON RosettaNodePeer where
+  toJSON (RosettaNodePeer i someMeta) =
     case someMeta of
       Nothing -> object restOfPairs
       Just m -> object (restOfPairs ++ metaPair m)
@@ -591,7 +590,7 @@ instance ToJSON PeerMetaData where
 
 -- Utilized to inform the client of the versions of different components of the
 -- Rosetta implementation.
-data Version = Version
+data RosettaNodeVersion = RosettaNodeVersion
   { _version_rosettaVersion :: Text
   -- ^ Version of the Rosetta interface the implementation adheres to
   -- ^ Useful for clients looking to reliably parse responses
@@ -605,8 +604,8 @@ data Version = Version
   --   services
   }
 
-instance ToJSON Version where
-  toJSON (Version r n someMiddle someMeta) =
+instance ToJSON RosettaNodeVersion where
+  toJSON (RosettaNodeVersion r n someMiddle someMeta) =
     case (someMiddle, someMeta) of
       (Nothing, Nothing) -> object restOfPairs
       (Just mi, Nothing) -> object (restOfPairs ++ middlePair mi)
@@ -759,7 +758,7 @@ instance FromJSON BlockTransactionRequest where
 
 
 -- Contains information about a block transaction
-data BlockTransactionResponse = BlockTransactionResponse
+newtype BlockTransactionResponse = BlockTransactionResponse
   { _blockTransactionResponse_transaction :: Transaction
   }
 
@@ -795,14 +794,14 @@ instance FromJSON ConstructionMetadataRequest where
 
 
 -- TODO
-data ConstructionMetadataOptions = ConstructionMetadataOptions ()
+newtype ConstructionMetadataOptions = ConstructionMetadataOptions ()
 instance FromJSON ConstructionMetadataOptions where
   parseJSON = withObject "ConstructionMetadataOptions" $ \_ -> do
     return $ ConstructionMetadataOptions ()
 
 
 -- Returns network-specific metadata used for transaction construction.
-data ConstructionMetadataResponse = ConstructionMetadataResponse
+newtype ConstructionMetadataResponse = ConstructionMetadataResponse
   { _constructionMetadataResponse_metadata :: ConstructionMetadataResponseMetaData
   -- ^ NOTE: It's likely that the client will not inspect this metadata before
   --         passing it to a client SDK that uses it for construction.
@@ -863,7 +862,7 @@ instance ToJSON ConstructionSubmitResponseMetaData where
 
 -- Utilized to retrieve all transaction identifiers in the mempool for a
 -- particular network on the /mempool endpoint.
-data MempoolRequest = MempoolRequest
+newtype MempoolRequest = MempoolRequest
   { _mempoolRequest_networkIdentifier :: NetworkIdentifier
   }
 
@@ -874,7 +873,7 @@ instance FromJSON MempoolRequest where
 
 
 -- Contains all transaction identifiers in the mempool for a particular network.
-data MempoolResponse = MempoolResponse
+newtype MempoolResponse = MempoolResponse
   { _mempoolResponse_transactionIdentifiers :: [TransactionIdentifier]
   }
 
@@ -928,7 +927,7 @@ instance ToJSON MempoolTransactionResponseMetaData where
 
 -- Utilized in any request where the only argument is optional metadata
 -- TODO: Which endpoint(s) use this?? I think its only used in /network/list
-data MetadataRequest = MetadataRequest
+newtype MetadataRequest = MetadataRequest
   { _metadataRequest_metadata :: Maybe MetadataRequestMetaData
   }
 
@@ -938,7 +937,7 @@ instance FromJSON MetadataRequest where
     return $ MetadataRequest m
 
 -- TODO
-data MetadataRequestMetaData = MetadataRequestMetaData ()
+newtype MetadataRequestMetaData = MetadataRequestMetaData ()
 instance FromJSON MetadataRequestMetaData where
   parseJSON = withObject "MetadataRequestMetaData" $ \_ -> do
     return $ MetadataRequestMetaData ()
@@ -948,7 +947,7 @@ instance FromJSON MetadataRequestMetaData where
 
 -- Contains all network identifiers that the node can server information for.
 -- The response from the /network/list endpoint
-data NetworkListResponse = NetworkListResponse
+newtype NetworkListResponse = NetworkListResponse
   { _networkListResponse_networkIdentifiers :: [NetworkIdentifier]
   }
 
@@ -962,7 +961,7 @@ instance ToJSON NetworkListResponse where
 -- Contains information about the versioning of the node and the allowed
 -- operation statuses, operation types, and errors.
 data NetworkOptionsResponse = NetworkOptionsResponse
-  { _networkOptionsResponse_version :: Version
+  { _networkOptionsResponse_version :: RosettaNodeVersion
   , _networkOptionsResponse_allow :: Allow
   }
 
@@ -989,7 +988,7 @@ instance FromJSON NetworkRequest where
       }
 
 -- TODO: optional?
-data NetworkRequestMetaData = NetworkRequestMetaData ()
+newtype NetworkRequestMetaData = NetworkRequestMetaData ()
 instance FromJSON NetworkRequestMetaData where
   parseJSON = withObject "NetworkRequestMetaData" $ \_ -> do
     return $ NetworkRequestMetaData ()
@@ -1002,7 +1001,7 @@ data NetworkStatusResponse = NetworkStatusResponse
   , _NetworkStatusResponse_currentBlockTimestamp :: Word64
   -- ^ Timestamp of the block in milliseconds since the Unix Epoch.
   , _NetworkStatusResponse_genesisBlockIdentifier :: BlockIdentifier
-  , _NetworkStatusResponse_peers :: [Peer]
+  , _NetworkStatusResponse_peers :: [RosettaNodePeer]
   }
 
 instance ToJSON NetworkStatusResponse where
