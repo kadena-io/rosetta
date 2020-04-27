@@ -1,6 +1,63 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Rosetta where
+-- |
+-- Module    : Rosetta
+-- Copyright : (c) Kadena LLC 2020
+-- License   : BSD3
+-- Maintainer: Linda Ortega <linda.ortega2013@gmail.com>
+--
+-- Haskell types for the Rosetta API.
+
+module Rosetta
+  ( -- * Data Types
+    -- ** Core
+    Amount(..)
+  , Block(..)
+  , Currency(..)
+  , Operation(..)
+  , Transaction(..)
+    -- ** Identifiers
+  , AccountId(..)
+  , SubAccountId(..)
+  , BlockId(..)
+  , PartialBlockId(..)
+  , NetworkId(..)
+  , SubNetworkId(..)
+  , OperationId(..)
+  , TransactionId(..)
+    -- * Network Metadata Types
+  , Allow(..)
+  , OperationStatus(..)
+  , RosettaNodePeer(..)
+  , RosettaNodeVersion(..)
+    -- * Wire Types
+    -- ** Accounts
+  , AccountBalanceReq(..)
+  , AccountBalanceResp(..)
+    -- ** Blocks
+  , BlockReq(..)
+  , BlockResp(..)
+  , BlockTransactionReq(..)
+  , BlockTransactionResp(..)
+    -- ** Construction
+  , ConstructionMetadataReq(..)
+  , ConstructionMetadataResp(..)
+  , ConstructionSubmitReq(..)
+  , ConstructionSubmitResp(..)
+    -- ** Mempool
+  , MempoolReq(..)
+  , MempoolResp(..)
+  , MempoolTransactionReq(..)
+  , MempoolTransactionResp(..)
+    -- ** Network
+  , MetadataReq(..)
+  , NetworkReq(..)
+  , NetworkListResp(..)
+  , NetworkOptionsResp(..)
+  , NetworkStatusResp(..)
+    -- * Errors
+  , RosettaError(..)
+  ) where
 
 ------------------------------------------------------------------------------
 import Data.Aeson
@@ -15,24 +72,24 @@ import Data.Word (Word64)
 
 -- Uniquely identifies an account within a network.
 -- All provided fields are utilized to determine this uniqueness.
-data AccountIdentifier = AccountIdentifier
-  { _accountIdentifier_address :: Text
+data AccountId = AccountId
+  { _accountId_address :: Text
   -- ^ Account address
   -- ^ Examples: cryptographic public key, some encoding of it, or username
   -- ^ TODO: this should probably correspond to the user's key in the specific ledger.
   --         i.e. the key in the coin contract.
 
-  , _accountIdentifier_subAccount :: Maybe SubAccountIdentifier
+  , _accountId_subAccount :: Maybe SubAccountId
   -- ^ An account may have state specific to a contract address (ERC-20 token)
   --   and/or a stake (delegated balance).
   -- ^ TODO: confused by the wording of this.
   -- ^ TODO: should this be used to state which contract (i.e. coin contract,
   --         some other token contract) the account refers to?
   --         Seems to be the case based on comment here:
-  --            "If an account has a balance for each AccountIdentifier describing
+  --            "If an account has a balance for each AccountId describing
   --             it (ex: an ERC-20 token balance on a few smart contracts)"
 
-  , _accountIdentifier_metadata :: Maybe AccountIdentifierMetaData
+  , _accountId_metadata :: Maybe Object
   -- ^ If blockchain allows using a username model, the public key(s) owned
   --   by this address should be specified in metadata.
   -- ^ TODO: What does it mean by "public keys owned by"?
@@ -42,8 +99,8 @@ data AccountIdentifier = AccountIdentifier
   -- ^ TODO: How will others know how to parse meta datas?
   }
 
-instance ToJSON AccountIdentifier where
-  toJSON (AccountIdentifier add someSub someMeta) =
+instance ToJSON AccountId where
+  toJSON (AccountId add someSub someMeta) =
     case (someSub, someMeta) of
       (Nothing, Nothing) -> object restOfPairs
       (Just s, Nothing) -> object (restOfPairs ++ (subAcctPair s))
@@ -51,94 +108,75 @@ instance ToJSON AccountIdentifier where
       (Just s, Just m) -> object (restOfPairs ++ (subAcctPair s) ++ (metaPair m))
     where
       restOfPairs = [ "address" .= add ]
-      subAcctPair :: SubAccountIdentifier -> [Pair]
+      subAcctPair :: SubAccountId -> [Pair]
       subAcctPair s = [ "sub_account" .= s ]
-      metaPair :: AccountIdentifierMetaData -> [Pair]
+      metaPair :: Object -> [Pair]
       metaPair m = [ "metadata" .= m ]
 
-instance FromJSON AccountIdentifier where
-  parseJSON = withObject "AccountIdentifier" $ \o -> do
+instance FromJSON AccountId where
+  parseJSON = withObject "AccountId" $ \o -> do
     add <- o .: "address"
     subAcct <- o .:? "sub_account"
     meta <- o .:? "metadata"
-    return $ AccountIdentifier
-      { _accountIdentifier_address = add
-      , _accountIdentifier_subAccount = subAcct
-      , _accountIdentifier_metadata = meta
+    return $ AccountId
+      { _accountId_address = add
+      , _accountId_subAccount = subAcct
+      , _accountId_metadata = meta
       }
-
-
--- TODO: what information to include here?
-newtype AccountIdentifierMetaData = AccountIdentifierMetaData ()
-instance ToJSON AccountIdentifierMetaData where
-  toJSON _ = object []
-instance FromJSON AccountIdentifierMetaData where
-  parseJSON = withObject "AccountIdentifierMetaData" $ \_ -> do
-    return $ AccountIdentifierMetaData ()
-
 
 ------------------------------------------------------------------------------
 
 -- Uniquely identifies a sub-account.
 -- All provided fiels are utilized to determine this uniqueness.
-data SubAccountIdentifier = SubAccountIdentifier
-  { _subAccountIdentifier_address :: Text
+data SubAccountId = SubAccountId
+  { _subAccountId_address :: Text
   -- ^ A cryptographic value or other identifier
-  , _subAccountIdentifier_metadata :: Maybe SubAccountIdentifierMetaData
+  , _subAccountId_metadata :: Maybe Object
   -- ^ Defined when an address is not sufficient to uniquely specify a sub-account.
   }
 
-instance ToJSON SubAccountIdentifier where
-  toJSON (SubAccountIdentifier add someMeta) =
+instance ToJSON SubAccountId where
+  toJSON (SubAccountId add someMeta) =
     case someMeta of
       Nothing -> object restOfPairs
       Just m -> object (restOfPairs ++ (metaPair m))
     where
       restOfPairs = [ "address" .= add ]
-      metaPair :: SubAccountIdentifierMetaData -> [Pair]
+      metaPair :: Object -> [Pair]
       metaPair m = [ "metadata" .= m ]
 
-instance FromJSON SubAccountIdentifier where
-  parseJSON = withObject "SubAccountIdentifier" $ \o -> do
+instance FromJSON SubAccountId where
+  parseJSON = withObject "SubAccountId" $ \o -> do
     add <- o .: "address"
     meta <- o .:? "metadata"
-    return $ SubAccountIdentifier
-      { _subAccountIdentifier_address = add
-      , _subAccountIdentifier_metadata = meta
+    return $ SubAccountId
+      { _subAccountId_address = add
+      , _subAccountId_metadata = meta
       }
-
-
--- TODO: optional?
-newtype SubAccountIdentifierMetaData = SubAccountIdentifierMetaData ()
-instance ToJSON SubAccountIdentifierMetaData where
-  toJSON _ = object []
-instance FromJSON SubAccountIdentifierMetaData where
-  parseJSON = withObject "SubAccountIdentifierMetaData" $ \_ -> do
-    return $ SubAccountIdentifierMetaData ()
 
 ------------------------------------------------------------------------------
 
 -- Uniquely identifies a block in a particular network
 -- TODO: how to define a chain?
 -- TODO: check to make sure that whenever a Block is returned, ntwork idetifier is also returned.
-data BlockIdentifier = BlockIdentifier
-  { _blockIdentifier_index :: Word64
+data BlockId = BlockId
+  { _blockId_index :: Word64
   -- ^ The block height
-  , _blockIdentifier_hash :: Text
+  , _blockId_hash :: Text
   }
 
-instance ToJSON BlockIdentifier where
-  toJSON (BlockIdentifier idx hsh) =
+instance ToJSON BlockId where
+  toJSON (BlockId idx hsh) =
     object [ "index" .= idx
            , "hash" .= hsh ]
 
-instance FromJSON BlockIdentifier where
-  parseJSON = withObject "BlockIdentifier" $ \o -> do
+instance FromJSON BlockId where
+  parseJSON = withObject "BlockId" $ \o -> do
     idx <- o .: "index"
     hash <- o .: "hash"
-    return $ BlockIdentifier
-      { _blockIdentifier_index = idx
-      , _blockIdentifier_hash = hash
+    return $ BlockId
+      { _blockId_index = idx
+      , _blockId_hash = hash
       }
 
 ------------------------------------------------------------------------------
@@ -146,33 +184,33 @@ instance FromJSON BlockIdentifier where
 -- Allows for fetching block information without having to specify
 -- the index or hash.
 -- If both are ommitted, assumes the client is requesting the current block.
-data PartialBlockIdentifier = PartialBlockIdentifier
-  { _partialBlockIdentifier_index :: Maybe Word64
-  , _partialBlockIdentifier_hash :: Maybe Text
+data PartialBlockId = PartialBlockId
+  { _partialBlockId_index :: Maybe Word64
+  , _partialBlockId_hash :: Maybe Text
   }
 
-instance FromJSON PartialBlockIdentifier where
-  parseJSON = withObject "PartialBlockIdentifier" $ \o -> do
+instance FromJSON PartialBlockId where
+  parseJSON = withObject "PartialBlockId" $ \o -> do
     idx <- o .:? "index"
     hsh <- o .:? "hash"
-    return $ PartialBlockIdentifier
-      { _partialBlockIdentifier_index = idx
-      , _partialBlockIdentifier_hash = hsh
+    return $ PartialBlockId
+      { _partialBlockId_index = idx
+      , _partialBlockId_hash = hsh
       }
 
 ------------------------------------------------------------------------------
 
 -- Specifies which network a particular object is associated with
-data NetworkIdentifier = NetworkIdentifier
-  { _networkIdentifier_blockchain :: Text
+data NetworkId = NetworkId
+  { _networkId_blockchain :: Text
   -- ^ Name of the blockchain
   -- ^ TODO: "kadena"
 
-  , _networkIdentifier_network :: Text
+  , _networkId_network :: Text
   -- ^ Specific chain-id or network identifier
   -- ^ TODO: up to client to determine which network-specific identifier is mainnet or testnet?
 
-  , _networkIdentifier_subNetworkIdentifier :: Maybe SubNetworkIdentifier
+  , _networkId_subNetworkId :: Maybe SubNetworkId
   -- ^ Sharded state identifier used to query object on specific shard
   -- ^ Required for all sharded blockchains
   -- ^ TODO: Is Kadena a sharded blockchain? YES
@@ -180,8 +218,8 @@ data NetworkIdentifier = NetworkIdentifier
   --         Javascript clients may assume existance of a field key is important. Without noticing if its null.
   }
 
-instance ToJSON NetworkIdentifier where
-  toJSON (NetworkIdentifier bid netId someSubNetId) =
+instance ToJSON NetworkId where
+  toJSON (NetworkId bid netId someSubNetId) =
     case someSubNetId of
       Nothing -> object restOfPairs
       Just s -> object (restOfPairs ++ (subNetIdPair s))
@@ -189,29 +227,29 @@ instance ToJSON NetworkIdentifier where
       restOfPairs = [ "blockchain" .= bid, "network" .= netId ]
       subNetIdPair s = [ "sub_network_identifier" .= s ]
 
-instance FromJSON NetworkIdentifier where
-  parseJSON = withObject "NetworkIdentifier" $ \o -> do
+instance FromJSON NetworkId where
+  parseJSON = withObject "NetworkId" $ \o -> do
     bid <- o .: "blockchain"
     netId <- o .: "network"
     subNetId <- o .:? "sub_network_identifier"
-    return $ NetworkIdentifier
-      { _networkIdentifier_blockchain = bid
-      , _networkIdentifier_network = netId
-      , _networkIdentifier_subNetworkIdentifier = subNetId
+    return $ NetworkId
+      { _networkId_blockchain = bid
+      , _networkId_network = netId
+      , _networkId_subNetworkId = subNetId
       }
 
 ------------------------------------------------------------------------------
 
 -- TODO: optional?
-data SubNetworkIdentifier = SubNetworkIdentifier
-  { _subNetworkIdentifier_network :: Text
+data SubNetworkId = SubNetworkId
+  { _subNetworkId_network :: Text
   -- ^ TODO: "1". Represent chain number. Chains will always be numbers.
-  , _subNetworkIdentifier_metadata :: Maybe SubNetworkIdentifierMetaData
+  , _subNetworkId_metadata :: Maybe Object
   -- ^ TODO: "mainnet01"? Policy question. Do the care about forks?
   }
 
-instance ToJSON SubNetworkIdentifier where
-  toJSON (SubNetworkIdentifier sid someMeta) =
+instance ToJSON SubNetworkId where
+  toJSON (SubNetworkId sid someMeta) =
     case someMeta of
       Nothing -> object restOfPairs
       Just m -> object (restOfPairs ++ (metaPair m))
@@ -219,23 +257,14 @@ instance ToJSON SubNetworkIdentifier where
       restOfPairs = [ "network" .= sid ]
       metaPair m = [ "metadata" .= m ]
 
-instance FromJSON SubNetworkIdentifier where
-  parseJSON = withObject "SubNetworkIdentifier" $ \o -> do
+instance FromJSON SubNetworkId where
+  parseJSON = withObject "SubNetworkId" $ \o -> do
     sid <- o .: "network"
     m <- o .:? "metadata"
-    return $ SubNetworkIdentifier
-      { _subNetworkIdentifier_network = sid
-      , _subNetworkIdentifier_metadata = m
+    return $ SubNetworkId
+      { _subNetworkId_network = sid
+      , _subNetworkId_metadata = m
       }
-
-
--- TODO: optional?
-newtype SubNetworkIdentifierMetaData = SubNetworkIdentifierMetaData ()
-instance ToJSON SubNetworkIdentifierMetaData where
-  toJSON _ = object []
-instance FromJSON SubNetworkIdentifierMetaData where
-  parseJSON = withObject "SubNetworkIdentifierMetaData" $ \_ -> do
-    return $ SubNetworkIdentifierMetaData ()
 
 ------------------------------------------------------------------------------
 
@@ -243,10 +272,10 @@ instance FromJSON SubNetworkIdentifierMetaData where
 -- TODO: No idea what an operation refers to?
 -- TODO: Docs mention that not all blockchains have a notion of an operation index.
 -- TODO: They don't specify what Operations are. Free
-data OperationIdentifier = OperationIdentifier
-  { _operationIdentifier_index :: Word64
+data OperationId = OperationId
+  { _operationId_index :: Word64
   -- ^ Unique identifier for each operation within a transaction
-  , _operationIdentifier_networkIndex :: Maybe Word64
+  , _operationId_networkIndex :: Maybe Word64
   -- ^ Optional network index associated with a given operation index
   -- ^ Example: Bitcoin uses a network index to identity which UTXO was used in a
   --            transaction.
@@ -255,8 +284,8 @@ data OperationIdentifier = OperationIdentifier
   --         Does this apply to Kadena?
   }
 
-instance ToJSON OperationIdentifier where
-  toJSON (OperationIdentifier idx someNetIdx) =
+instance ToJSON OperationId where
+  toJSON (OperationId idx someNetIdx) =
     case someNetIdx of
       Nothing -> object restOfPairs
       Just ni -> object (restOfPairs ++ (netIdxPair ni))
@@ -268,21 +297,21 @@ instance ToJSON OperationIdentifier where
 
 -- Uniquely identifies a transaction in a particular network and block
 -- or in the mempool.
-newtype TransactionIdentifier = TransactionIdentifier
-  { _transactionIdentifier_hash :: Text
+newtype TransactionId = TransactionId
+  { _transactionId_hash :: Text
   -- ^ Any transactions that are attributable only to a block (i.e. block event)
   --   should use the hash of the block as the identifier.
   -- ^ TODO: Does Kadena have transactions attributable only to a block? I don't think so.
   }
 
-instance ToJSON TransactionIdentifier where
-  toJSON (TransactionIdentifier h) =
+instance ToJSON TransactionId where
+  toJSON (TransactionId h) =
     object [ "hash" .= h ]
 
-instance FromJSON TransactionIdentifier where
-  parseJSON = withObject "TransactionIdentifier" $ \o -> do
+instance FromJSON TransactionId where
+  parseJSON = withObject "TransactionId" $ \o -> do
     hash <- o .: "hash"
-    return $ TransactionIdentifier hash
+    return $ TransactionId hash
 
 
 ------------------------------------------------------------------------------
@@ -323,7 +352,7 @@ data Amount = Amount
   --   units (Satoshis) to standard units (Bitcoins).
   -- ^ TODO: Satoshis are the smallest denomination of bitcoin. In US, cents == Satoshis.
   -- ^ TODO: Are atomic units Satoshis? What's the conversion between that and KDA/BTC?
-  , _amount_metadata :: Maybe AmountMetaData
+  , _amount_metadata :: Maybe Object
   }
 
 instance ToJSON Amount where
@@ -335,25 +364,19 @@ instance ToJSON Amount where
       restOfPairs = [ "value" .= v, "currency" .= c ]
       metaPair m = [ "metadata" .= m ]
 
-
--- TODO: optional?
-data AmountMetaData
-instance ToJSON AmountMetaData where
-  toJSON _ = object []
-
 ------------------------------------------------------------------------------
 
 -- Blocks contain an array of Transactions that occurred at a
--- particular BlockIdentifier
+-- particular BlockId
 data Block = Block
-  { _block_blockIdentifier :: BlockIdentifier
+  { _block_blockId :: BlockId
   -- ^ A unique block in a particular network
-  , _block_parentBlockIdentifier :: BlockIdentifier
+  , _block_parentBlockId :: BlockId
   -- ^ Parent block identifier
   , _block_timestamp :: Word64
   -- ^ Timestamp of the block in milliseconds since the Unix Epoch
   , _block_transactions :: [Transaction]
-  , _block_metadata :: Maybe BlockMetaData
+  , _block_metadata :: Maybe Object
   }
 
 instance ToJSON Block where
@@ -369,11 +392,6 @@ instance ToJSON Block where
         , "transactions" .= ts ]
       metaPair m = [ "metadata" .= m]
 
-
-data BlockMetaData
-instance ToJSON BlockMetaData where
-  toJSON _ = object []
-
 ------------------------------------------------------------------------------
 
 -- Composed of canonical Symbol and Decimals.
@@ -388,7 +406,7 @@ data Currency = Currency
   -- ^ NOTE: It's not possible to represent the value of some currency in atomic units
   --         that is not base 10.
   -- ^ TODO: What's this for KDA?
-  , _currency_metadata :: Maybe CurrencyMetaData
+  , _currency_metadata :: Maybe Object
   -- ^ Any additiona information related to the currency itself.
   -- ^ Example: It would be useful to populate this object with the contract address of
   --            an ERC-20 token.
@@ -404,25 +422,19 @@ instance ToJSON Currency where
       restOfPairs = [ "symbol" .= s, "decimals" .= d ]
       metaPair m = [ "metadata" .= m ]
 
-
--- TODO: optional?
-data CurrencyMetaData
-instance ToJSON CurrencyMetaData where
-  toJSON _ = object []
-
 ------------------------------------------------------------------------------
 
 -- Operations contain all balance-changing information within a transaction.
--- They are always one-sided (only affect 1 AccountIdentifier) and can succeed
+-- They are always one-sided (only affect 1 AccountId) and can succeed
 -- or fail idependently from a Transaction.
 -- NOTE: A tx can succeed but you
 -- For every transaction that occurrs, there's at least two transaction.
 -- The gas payment leaving, the miner getting rewards, and coinbase.
 -- coinbase (system), all of the gas limit * price withdrawn from the user (atomic), (pact) *money comes out from tx (atomic) optional*, gas payment to miner (atomic), gas refund to gas payer (optional) 0 (atomic).
 data Operation = Operation
-  { _operation_operationIdentifier :: OperationIdentifier
+  { _operation_operationId :: OperationId
   -- ^ Uniquely identifies an operation within a transaction
-  , _operation_relatedOperations :: Maybe [OperationIdentifier]
+  , _operation_relatedOperations :: Maybe [OperationId]
   -- ^ Restrict referenced operations to those whose identifier index is
   --   less than (<) the current operation's indentifier index. This
   --   ensures there exists a clear DAG-structure of relations.
@@ -435,7 +447,7 @@ data Operation = Operation
   --   block data.
   -- Example: "Transfer"
   -- TODO: Is "NetworkStatus" a typo? Does it mean Allow's operationTypes?
-  --       They meant NetworkOptionsResponse.
+  --       They meant NetworkOptionsResp.
   , _operation_status :: Text
   -- ^ The network-specific status of the operation.
   -- ^ Status is not defined on the transaction object because blockchains with
@@ -444,19 +456,19 @@ data Operation = Operation
   --   will have the same status for each operation.
   -- ^ Example: "Reverted"
   -- ^ TODO: Not sure what this could be set to?
-  , _operation_account :: Maybe AccountIdentifier
+  , _operation_account :: Maybe AccountId
   , _operation_amount :: Maybe Amount
-  , _operation_metadata :: Maybe OperationMetaData
+  , _operation_metadata :: Maybe Object
   }
 
 instance ToJSON Operation where
   toJSON op = object allPairs
     where
-      relatedOperationsPair :: Maybe [OperationIdentifier] -> [Pair]
+      relatedOperationsPair :: Maybe [OperationId] -> [Pair]
       relatedOperationsPair Nothing = []
       relatedOperationsPair (Just ops) = [ "related_operations" .= ops ]
 
-      accountPair :: Maybe AccountIdentifier -> [Pair]
+      accountPair :: Maybe AccountId -> [Pair]
       accountPair Nothing = []
       accountPair (Just acct) = [ "account" .= acct ]
 
@@ -464,12 +476,12 @@ instance ToJSON Operation where
       amountPair Nothing = []
       amountPair (Just amt) = [ "amount" .= amt ]
 
-      metaPair :: Maybe OperationMetaData -> [Pair]
+      metaPair :: Maybe Object -> [Pair]
       metaPair Nothing = []
       metaPair (Just m) = [ "metadata" .= m ]
 
       allPairs =
-        [ "operation_identifier" .= (_operation_operationIdentifier op)
+        [ "operation_identifier" .= (_operation_operationId op)
         , "type" .= (_operation_type op)
         , "status" .= (_operation_status op) ]
         ++ (relatedOperationsPair (_operation_relatedOperations op))
@@ -477,20 +489,14 @@ instance ToJSON Operation where
         ++ (amountPair (_operation_amount op))
         ++ (metaPair (_operation_metadata op))
 
-
--- TODO: optional
-data OperationMetaData
-instance ToJSON OperationMetaData where
-  toJSON _ = object []
-
 ------------------------------------------------------------------------------
 
 -- Transactions contain an array of Operations that are attributable to the
--- same TransactionIdentifier
+-- same TransactionId
 data Transaction = Transaction
-  { _transaction_transactionIdentifier :: TransactionIdentifier
+  { _transaction_transactionId :: TransactionId
   , _transaction_operations :: [Operation]
-  , _transaction_metadata :: Maybe TransactionMetaData
+  , _transaction_metadata :: Maybe Object
   -- ^ NOTE: Transactions that are related to other transactions (i.e. cross-shard
   --   transactions) should include the transaction_identifier of these transaction
   --   in the metadata.
@@ -510,13 +516,6 @@ instance ToJSON Transaction where
     where
       restOfPairs = [ "transaction_identifier" .= i, "operations" .= ops ]
       metaPair m = [ "metadata" .= m ]
-
-
--- TODO: Optional?
-data TransactionMetaData
-instance ToJSON TransactionMetaData where
-  toJSON _ = object []
-
 
 ------------------------------------------------------------------------------
 -- Miscellaneous --
@@ -568,7 +567,7 @@ instance ToJSON OperationStatus where
 -- A node's peer
 data RosettaNodePeer = RosettaNodePeer
   { _peer_peerId :: Text
-  , _peer_metadata :: Maybe PeerMetaData
+  , _peer_metadata :: Maybe Object
   }
 
 instance ToJSON RosettaNodePeer where
@@ -579,12 +578,6 @@ instance ToJSON RosettaNodePeer where
     where
       restOfPairs = [ "peer_id" .= i ]
       metaPair m = [ "metadata" .= m ]
-
-
--- TODO: optional?
-data PeerMetaData
-instance ToJSON PeerMetaData where
-  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
@@ -599,7 +592,7 @@ data RosettaNodeVersion = RosettaNodeVersion
   --   manage deployments
   , _version_middlewareVersion :: Maybe Text
   -- ^ Middleware version, if one is used to adhere to the Rosetta interface
-  , _version_metadata :: Maybe VersionMetaData
+  , _version_metadata :: Maybe Object
   -- ^ Any other information that may be useful about versioning of dependent
   --   services
   }
@@ -615,14 +608,8 @@ instance ToJSON RosettaNodeVersion where
       restOfPairs = [ "rosetta_version" .= r, "node_version" .= n ]
       middlePair :: Text -> [Pair]
       middlePair mi = [ "middleware_version" .= mi ]
-      metaPair :: VersionMetaData -> [Pair]
+      metaPair :: Object -> [Pair]
       metaPair meta = [ "metadata" .= meta ]
-
-
--- TODO: optional?
-data VersionMetaData
-instance ToJSON VersionMetaData where
-  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 -- Requests and Responses --
@@ -634,48 +621,48 @@ instance ToJSON VersionMetaData where
 
 
 -- Utilized to make a balance request on the /account/balance endpoint.
--- NOTE: If a blockIdentifier is populated, a historical balance query
+-- NOTE: If a blockId is populated, a historical balance query
 --       should be performed.
--- NOTE:  If an account has a balance for each AccountIdentifier describing it
+-- NOTE:  If an account has a balance for each AccountId describing it
 --        (ex: an ERC-20 token balance on a few smart contracts), an account balance
---        request must be made with each AccountIdentifier.
+--        request must be made with each AccountId.
 -- TODO: What does the first NOTE mean by "historical balance query"? At a particular
 --       block?
-data AccountBalanceRequest = AccountBalanceRequest
-  { _accountBalanceRequest_networkIdentifier :: NetworkIdentifier
-  , _accountBalanceRequest_accountIdentifier :: AccountIdentifier
-  , _accountBalanceRequest_blockIdentifier :: Maybe PartialBlockIdentifier
+data AccountBalanceReq = AccountBalanceReq
+  { _accountBalanceReq_networkId :: NetworkId
+  , _accountBalanceReq_accountId :: AccountId
+  , _accountBalanceReq_blockId :: Maybe PartialBlockId
   -- ^ NOTE: when index and hash fields missing, it's assumed the client
   --         is making a request at the current block.
   }
 
-instance FromJSON AccountBalanceRequest where
-  parseJSON = withObject "AccountBalanceRequest" $ \o -> do
+instance FromJSON AccountBalanceReq where
+  parseJSON = withObject "AccountBalanceReq" $ \o -> do
     netId <- o .: "network_identifier"
     acctId <- o .: "account_identifier"
     bi <- o .:? "block_identifier"
-    return $ AccountBalanceRequest
-      { _accountBalanceRequest_networkIdentifier = netId
-      , _accountBalanceRequest_accountIdentifier = acctId
-      , _accountBalanceRequest_blockIdentifier = bi
+    return $ AccountBalanceReq
+      { _accountBalanceReq_networkId = netId
+      , _accountBalanceReq_accountId = acctId
+      , _accountBalanceReq_blockId = bi
       }
 
 
 -- Returned on the /account/balance endpoint
-data AccountBalanceResponse = AccountBalanceResponse
-  { _accountBalanceResponse_blockIdentifier :: BlockIdentifier
-  , _accountBalanceResponse_balances :: [Amount]
+data AccountBalanceResp = AccountBalanceResp
+  { _accountBalanceResp_blockId :: BlockId
+  , _accountBalanceResp_balances :: [Amount]
   -- ^ A single account may have a balance in multiple currencies
   -- ^ TODO: what?? Is this referring to a ledger that keeps tracks of two tokesn for ex?
-  , _accountBalanceResponse_metadata :: Maybe AccountBalanceResponseMetaData
+  , _accountBalanceResp_metadata :: Maybe Object
   -- ^ Account-based blockchains that utilize a nonce or sequence number should include
   --   that number in the metadata. This number could be unique to the identifier or global
   --   across the account address.
   -- ^ TODO: Is Kadena an account-based blockchain?
   }
 
-instance ToJSON AccountBalanceResponse where
-  toJSON (AccountBalanceResponse bi bals someMeta) =
+instance ToJSON AccountBalanceResp where
+  toJSON (AccountBalanceResp bi bals someMeta) =
     case someMeta of
       Nothing -> object restOfPairs
       Just m -> object (restOfPairs ++ metaPair m)
@@ -683,27 +670,21 @@ instance ToJSON AccountBalanceResponse where
       restOfPairs = [ "block_identifier" .= bi, "balances" .= bals ]
       metaPair m = [ "metadata" .= m ]
 
-
--- TODO: Optional?
-data AccountBalanceResponseMetaData
-instance ToJSON AccountBalanceResponseMetaData where
-  toJSON _ = object []
-
 ------------------------------------------------------------------------------
 
 -- Utilized to make a block request on the /block endpoint
-data BlockRequest = BlockRequest
- { _blockRequest_networkIdentifier :: NetworkIdentifier
- , _blockRequest_blockIdentifier :: PartialBlockIdentifier
+data BlockReq = BlockReq
+ { _blockReq_networkId :: NetworkId
+ , _blockReq_blockId :: PartialBlockId
  }
 
-instance FromJSON BlockRequest where
-  parseJSON = withObject "BlockRequest" $ \o -> do
+instance FromJSON BlockReq where
+  parseJSON = withObject "BlockReq" $ \o -> do
     netId <- o .: "network_identifier"
     bId <- o .: "block_identifier"
-    return $ BlockRequest
-      { _blockRequest_networkIdentifier = netId
-      , _blockRequest_blockIdentifier = bId
+    return $ BlockReq
+      { _blockReq_networkId = netId
+      , _blockReq_blockId = bId
       }
 
 
@@ -712,10 +693,10 @@ instance FromJSON BlockRequest where
 -- TODO: What's a partially-populated block??
 --       Why do the other transactions have to be fetched?
 --       You can send the block with all the transactions in it, or just the transaction hash.
-data BlockResponse = BlockResponse
-  { _blockResponse_block :: Block
+data BlockResp = BlockResp
+  { _blockResp_block :: Block
   -- ^ Array of Transactions that occurred at a particular block
-  , _blockResponse_otherTransactions :: Maybe [TransactionIdentifier]
+  , _blockResp_otherTransactions :: Maybe [TransactionId]
   -- ^ NOTE: Some blockchains require additional transactions to be fetched
   --         that weren't returned in the block response (i.e. the block only
   --         returns transaction hashes). For blockchains with a lot of
@@ -725,8 +706,8 @@ data BlockResponse = BlockResponse
   --         field?
   }
 
-instance ToJSON BlockResponse where
-  toJSON (BlockResponse b someOtherTxs) =
+instance ToJSON BlockResp where
+  toJSON (BlockResp b someOtherTxs) =
     case someOtherTxs of
       Nothing -> object restOfPairs
       Just ts -> object (restOfPairs ++ otherTxsPair ts)
@@ -738,32 +719,32 @@ instance ToJSON BlockResponse where
 ------------------------------------------------------------------------------
 
 -- Used to fetch a Transaction included in a block that is not returned in
--- BlockResponse on the /block/transaction endpoint.
-data BlockTransactionRequest = BlockTransactionRequest
-  { _blockTransactionRequest_networkIdentifier :: NetworkIdentifier
-  , _blockTransactionRequest_blockIdentifier :: BlockIdentifier
-  , _blockTransactionRequest_transactionIdentifier :: TransactionIdentifier
+-- BlockResp on the /block/transaction endpoint.
+data BlockTransactionReq = BlockTransactionReq
+  { _blockTransactionReq_networkId :: NetworkId
+  , _blockTransactionReq_blockId :: BlockId
+  , _blockTransactionReq_transactionId :: TransactionId
   }
 
-instance FromJSON BlockTransactionRequest where
-  parseJSON = withObject "BlockTransactionRequest" $ \o -> do
+instance FromJSON BlockTransactionReq where
+  parseJSON = withObject "BlockTransactionReq" $ \o -> do
     netId <- o .: "network_identifier"
     bId <- o .: "block_identifier"
     txId <- o .: "transaction_identifier"
-    return $ BlockTransactionRequest
-      { _blockTransactionRequest_networkIdentifier = netId
-      , _blockTransactionRequest_blockIdentifier = bId
-      , _blockTransactionRequest_transactionIdentifier = txId
+    return $ BlockTransactionReq
+      { _blockTransactionReq_networkId = netId
+      , _blockTransactionReq_blockId = bId
+      , _blockTransactionReq_transactionId = txId
       }
 
 
 -- Contains information about a block transaction
-newtype BlockTransactionResponse = BlockTransactionResponse
-  { _blockTransactionResponse_transaction :: Transaction
+newtype BlockTransactionResp = BlockTransactionResp
+  { _blockTransactionResp_transaction :: Transaction
   }
 
-instance ToJSON BlockTransactionResponse where
-  toJSON (BlockTransactionResponse tx) = object [ "transaction" .= tx ]
+instance ToJSON BlockTransactionResp where
+  toJSON (BlockTransactionResp tx) = object [ "transaction" .= tx ]
 
 
 ------------------------------------------------------------------------------
@@ -771,9 +752,9 @@ instance ToJSON BlockTransactionResponse where
 -- Utilized to get information required to construct a transaction
 -- on the /construction/metadata endpoint.
 -- TODO: Still unsure of what this endpoints does. Need to review endpoints.
-data ConstructionMetadataRequest = ConstructionMetadataRequest
-  { _constructionMetadataRequest_networkIdentifier :: NetworkIdentifier
-  , _constructionMetadataRequest_options :: ConstructionMetadataOptions
+data ConstructionMetadataReq = ConstructionMetadataReq
+  { _constructionMetadataReq_networkId :: NetworkId
+  , _constructionMetadataReq_options :: Object
   -- ^ Specifies which metadata to return
   -- ^ NOTE: Some blockchains require different metadata for different types of
   --         transaction construction (i.e. delegation vs transfer). Instead of
@@ -783,68 +764,55 @@ data ConstructionMetadataRequest = ConstructionMetadataRequest
   --         the subset required.
   }
 
-instance FromJSON ConstructionMetadataRequest where
-  parseJSON = withObject "ConstructionMetadataRequest" $ \o -> do
+instance FromJSON ConstructionMetadataReq where
+  parseJSON = withObject "ConstructionMetadataReq" $ \o -> do
     netId <- o .: "network_identifier"
     opts <- o .: "options"
-    return $ ConstructionMetadataRequest
-      { _constructionMetadataRequest_networkIdentifier = netId
-      , _constructionMetadataRequest_options = opts
+    return $ ConstructionMetadataReq
+      { _constructionMetadataReq_networkId = netId
+      , _constructionMetadataReq_options = opts
       }
 
-
--- TODO
-newtype ConstructionMetadataOptions = ConstructionMetadataOptions ()
-instance FromJSON ConstructionMetadataOptions where
-  parseJSON = withObject "ConstructionMetadataOptions" $ \_ -> do
-    return $ ConstructionMetadataOptions ()
-
-
 -- Returns network-specific metadata used for transaction construction.
-newtype ConstructionMetadataResponse = ConstructionMetadataResponse
-  { _constructionMetadataResponse_metadata :: ConstructionMetadataResponseMetaData
+newtype ConstructionMetadataResp = ConstructionMetadataResp
+  { _constructionMetadataResp_metadata :: Object
   -- ^ NOTE: It's likely that the client will not inspect this metadata before
   --         passing it to a client SDK that uses it for construction.
   -- TODO: How will this json object be used by client SDK??
   }
 
-instance ToJSON ConstructionMetadataResponse where
-  toJSON (ConstructionMetadataResponse m) =
+instance ToJSON ConstructionMetadataResp where
+  toJSON (ConstructionMetadataResp m) =
     object [ "metadata" .= m ]
-
--- TODO
-data ConstructionMetadataResponseMetaData
-instance ToJSON ConstructionMetadataResponseMetaData where
-  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
 -- Utilized to submit a signed transaction on the /construction/submit endpoint
-data ConstructionSubmitRequest = ConstructionSubmitRequest
-  { _constructionSubmitRequest_networkIdentifier :: NetworkIdentifier
-  , _constructionSubmitRequest_signedTransaction :: Text
+data ConstructionSubmitReq = ConstructionSubmitReq
+  { _constructionSubmitReq_networkId :: NetworkId
+  , _constructionSubmitReq_signedTransaction :: Text
   -- ^ The signed transaction
   }
 
-instance FromJSON ConstructionSubmitRequest where
-  parseJSON = withObject "ConstructionSubmitRequest" $ \o -> do
+instance FromJSON ConstructionSubmitReq where
+  parseJSON = withObject "ConstructionSubmitReq" $ \o -> do
     netId <- o .: "network_identifier"
     sig <- o .: "signed_transaction"
-    return $ ConstructionSubmitRequest
-      { _constructionSubmitRequest_networkIdentifier = netId
-      , _constructionSubmitRequest_signedTransaction = sig
+    return $ ConstructionSubmitReq
+      { _constructionSubmitReq_networkId = netId
+      , _constructionSubmitReq_signedTransaction = sig
       }
 
 
 -- Contains the transaction identifier of a submitted transaction that was
 -- accepted into the mempool.
-data ConstructionSubmitResponse = ConstructionSubmitResponse
-  { _constructionSubmitResponse_transactionIdentifier :: TransactionIdentifier
-  , _constructionSubmitResponse_metadata :: Maybe ConstructionSubmitResponseMetaData
+data ConstructionSubmitResp = ConstructionSubmitResp
+  { _constructionSubmitResp_transactionId :: TransactionId
+  , _constructionSubmitResp_metadata :: Maybe Object
   }
 
-instance ToJSON ConstructionSubmitResponse where
-  toJSON (ConstructionSubmitResponse txId someMeta) =
+instance ToJSON ConstructionSubmitResp where
+  toJSON (ConstructionSubmitResp txId someMeta) =
     case someMeta of
       Nothing -> object restOfPairs
       Just m -> object (restOfPairs ++ metaPair m)
@@ -852,64 +820,58 @@ instance ToJSON ConstructionSubmitResponse where
       restOfPairs = [ "transaction_identifier" .= txId ]
       metaPair m = [ "metadata" .= m ]
 
-
--- TODO: Optional?
-data ConstructionSubmitResponseMetaData
-instance ToJSON ConstructionSubmitResponseMetaData where
-  toJSON _ = object []
-
 ------------------------------------------------------------------------------
 
 -- Utilized to retrieve all transaction identifiers in the mempool for a
 -- particular network on the /mempool endpoint.
-newtype MempoolRequest = MempoolRequest
-  { _mempoolRequest_networkIdentifier :: NetworkIdentifier
+newtype MempoolReq = MempoolReq
+  { _mempoolReq_networkId :: NetworkId
   }
 
-instance FromJSON MempoolRequest where
-  parseJSON = withObject "MempoolRequest" $ \o -> do
+instance FromJSON MempoolReq where
+  parseJSON = withObject "MempoolReq" $ \o -> do
     netId <- o .: "network_identifier"
-    return $ MempoolRequest netId
+    return $ MempoolReq netId
 
 
 -- Contains all transaction identifiers in the mempool for a particular network.
-newtype MempoolResponse = MempoolResponse
-  { _mempoolResponse_transactionIdentifiers :: [TransactionIdentifier]
+newtype MempoolResp = MempoolResp
+  { _mempoolResp_transactionIds :: [TransactionId]
   }
 
-instance ToJSON MempoolResponse where
-  toJSON (MempoolResponse txs) =
+instance ToJSON MempoolResp where
+  toJSON (MempoolResp txs) =
     object [ "transaction_identifiers" .= txs ]
 
 ------------------------------------------------------------------------------
 
 -- Utilized to retrieve a transaction from the mempool on
 -- the /mempool/transaction endpoint
-data MempoolTransactionRequest = MempoolTransactionRequest
-  { _mempoolTransactionRequest_networkIdentifier :: NetworkIdentifier
-  , _mempoolTransactionRequest_transactionIdentifier :: TransactionIdentifier
+data MempoolTransactionReq = MempoolTransactionReq
+  { _mempoolTransactionReq_networkId :: NetworkId
+  , _mempoolTransactionReq_transactionId :: TransactionId
   }
 
-instance FromJSON MempoolTransactionRequest where
-  parseJSON = withObject "MempoolTransactionRequest" $ \o -> do
+instance FromJSON MempoolTransactionReq where
+  parseJSON = withObject "MempoolTransactionReq" $ \o -> do
     netId <- o .: "network_identifier"
     tx <- o .: "transaction_identifier"
-    return $ MempoolTransactionRequest
-      { _mempoolTransactionRequest_networkIdentifier = netId
-      , _mempoolTransactionRequest_transactionIdentifier = tx
+    return $ MempoolTransactionReq
+      { _mempoolTransactionReq_networkId = netId
+      , _mempoolTransactionReq_transactionId = tx
       }
 
 
 -- Contains an estimate of a mempool transaction.
 -- NOTE: It may not be possible to know the full impact of a transaction in
 --       the mempool (i.e. fee paid)
-data MempoolTransactionResponse = MempoolTransactionResponse
-  { _mempoolTransactionResponse_transaction :: Transaction
-  , _mempoolTransactionResponse_metadata :: Maybe MempoolTransactionResponseMetaData
+data MempoolTransactionResp = MempoolTransactionResp
+  { _mempoolTransactionResp_transaction :: Transaction
+  , _mempoolTransactionResp_metadata :: Maybe Object
   }
 
-instance ToJSON MempoolTransactionResponse where
-  toJSON (MempoolTransactionResponse tx someMeta) =
+instance ToJSON MempoolTransactionResp where
+  toJSON (MempoolTransactionResp tx someMeta) =
     case someMeta of
       Nothing -> object restOfPairs
       Just m -> object (restOfPairs ++ metaPair m)
@@ -917,42 +879,29 @@ instance ToJSON MempoolTransactionResponse where
       restOfPairs = [ "transaction" .= tx ]
       metaPair m = [ "metadata" .= m ]
 
-
--- TODO: Optional?
-data MempoolTransactionResponseMetaData
-instance ToJSON MempoolTransactionResponseMetaData where
-  toJSON _ = object []
-
 ------------------------------------------------------------------------------
 
 -- Utilized in any request where the only argument is optional metadata
 -- TODO: Which endpoint(s) use this?? I think its only used in /network/list
-newtype MetadataRequest = MetadataRequest
-  { _metadataRequest_metadata :: Maybe MetadataRequestMetaData
+newtype MetadataReq = MetadataReq
+  { _metadataReq_metadata :: Maybe Object
   }
 
-instance FromJSON MetadataRequest where
-  parseJSON = withObject "MetadataRequest" $ \o -> do
+instance FromJSON MetadataReq where
+  parseJSON = withObject "MetadataReq" $ \o -> do
     m <- o .:? "metadata"
-    return $ MetadataRequest m
-
--- TODO
-newtype MetadataRequestMetaData = MetadataRequestMetaData ()
-instance FromJSON MetadataRequestMetaData where
-  parseJSON = withObject "MetadataRequestMetaData" $ \_ -> do
-    return $ MetadataRequestMetaData ()
-
+    return $ MetadataReq m
 
 ------------------------------------------------------------------------------
 
 -- Contains all network identifiers that the node can server information for.
 -- The response from the /network/list endpoint
-newtype NetworkListResponse = NetworkListResponse
-  { _networkListResponse_networkIdentifiers :: [NetworkIdentifier]
+newtype NetworkListResp = NetworkListResp
+  { _networkListResp_networkIds :: [NetworkId]
   }
 
-instance ToJSON NetworkListResponse where
-  toJSON (NetworkListResponse netIds) =
+instance ToJSON NetworkListResp where
+  toJSON (NetworkListResp netIds) =
     object [ "network_identifiers" .= netIds ]
 
 
@@ -960,52 +909,46 @@ instance ToJSON NetworkListResponse where
 
 -- Contains information about the versioning of the node and the allowed
 -- operation statuses, operation types, and errors.
-data NetworkOptionsResponse = NetworkOptionsResponse
-  { _networkOptionsResponse_version :: RosettaNodeVersion
-  , _networkOptionsResponse_allow :: Allow
+data NetworkOptionsResp = NetworkOptionsResp
+  { _networkOptionsResp_version :: RosettaNodeVersion
+  , _networkOptionsResp_allow :: Allow
   }
 
-instance ToJSON NetworkOptionsResponse where
-  toJSON (NetworkOptionsResponse v allow) =
+instance ToJSON NetworkOptionsResp where
+  toJSON (NetworkOptionsResp v allow) =
     object [ "version" .= v
            , "allow" .= allow ]
 
 ------------------------------------------------------------------------------
 
 -- Utilized to retrieve some data specific exclusively to a network identifier.
-data NetworkRequest = NetworkRequest
-  { _networkRequest_networkIdentifier :: NetworkIdentifier
-  , _networkRequest_metadata :: Maybe NetworkRequestMetaData
+data NetworkReq = NetworkReq
+  { _networkReq_networkId :: NetworkId
+  , _networkReq_metadata :: Maybe Object
   }
 
-instance FromJSON NetworkRequest where
-  parseJSON = withObject "NetworkRequest" $ \o -> do
+instance FromJSON NetworkReq where
+  parseJSON = withObject "NetworkReq" $ \o -> do
     netId <- o .: "network_identifier"
     m <- o .:? "metadata"
-    return $ NetworkRequest
-      { _networkRequest_networkIdentifier = netId
-      , _networkRequest_metadata = m
+    return $ NetworkReq
+      { _networkReq_networkId = netId
+      , _networkReq_metadata = m
       }
-
--- TODO: optional?
-newtype NetworkRequestMetaData = NetworkRequestMetaData ()
-instance FromJSON NetworkRequestMetaData where
-  parseJSON = withObject "NetworkRequestMetaData" $ \_ -> do
-    return $ NetworkRequestMetaData ()
 
 ------------------------------------------------------------------------------
 
 -- Contains basic information about the node's view of a blockchain network
-data NetworkStatusResponse = NetworkStatusResponse
-  { _NetworkStatusResponse_currentBlockIdentifier :: BlockIdentifier
-  , _NetworkStatusResponse_currentBlockTimestamp :: Word64
+data NetworkStatusResp = NetworkStatusResp
+  { _networkStatusResp_currentBlockId :: BlockId
+  , _networkStatusResp_currentBlockTimestamp :: Word64
   -- ^ Timestamp of the block in milliseconds since the Unix Epoch.
-  , _NetworkStatusResponse_genesisBlockIdentifier :: BlockIdentifier
-  , _NetworkStatusResponse_peers :: [RosettaNodePeer]
+  , _networkStatusResp_genesisBlockId :: BlockId
+  , _networkStatusResp_peers :: [RosettaNodePeer]
   }
 
-instance ToJSON NetworkStatusResponse where
-  toJSON (NetworkStatusResponse currBlockId currBlockTime genesis peers) =
+instance ToJSON NetworkStatusResp where
+  toJSON (NetworkStatusResp currBlockId currBlockTime genesis peers) =
     object [ "current_block_identifier" .= currBlockId
            , "current_block_timestamp" .= currBlockTime
            , "genesis_block_identifier" .= genesis
