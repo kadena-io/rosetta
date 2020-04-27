@@ -89,7 +89,7 @@ data AccountIdentifier = AccountIdentifier
   --            "If an account has a balance for each AccountIdentifier describing
   --             it (ex: an ERC-20 token balance on a few smart contracts)"
 
-  , _accountIdentifier_metadata :: Maybe AccountIdentifierMetaData
+  , _accountIdentifier_metadata :: Maybe Object
   -- ^ If blockchain allows using a username model, the public key(s) owned
   --   by this address should be specified in metadata.
   -- ^ TODO: What does it mean by "public keys owned by"?
@@ -110,7 +110,7 @@ instance ToJSON AccountIdentifier where
       restOfPairs = [ "address" .= add ]
       subAcctPair :: SubAccountIdentifier -> [Pair]
       subAcctPair s = [ "sub_account" .= s ]
-      metaPair :: AccountIdentifierMetaData -> [Pair]
+      metaPair :: Object -> [Pair]
       metaPair m = [ "metadata" .= m ]
 
 instance FromJSON AccountIdentifier where
@@ -124,16 +124,6 @@ instance FromJSON AccountIdentifier where
       , _accountIdentifier_metadata = meta
       }
 
-
--- TODO: what information to include here?
-newtype AccountIdentifierMetaData = AccountIdentifierMetaData ()
-instance ToJSON AccountIdentifierMetaData where
-  toJSON _ = object []
-instance FromJSON AccountIdentifierMetaData where
-  parseJSON = withObject "AccountIdentifierMetaData" $ \_ -> do
-    return $ AccountIdentifierMetaData ()
-
-
 ------------------------------------------------------------------------------
 
 -- Uniquely identifies a sub-account.
@@ -141,7 +131,7 @@ instance FromJSON AccountIdentifierMetaData where
 data SubAccountIdentifier = SubAccountIdentifier
   { _subAccountIdentifier_address :: Text
   -- ^ A cryptographic value or other identifier
-  , _subAccountIdentifier_metadata :: Maybe SubAccountIdentifierMetaData
+  , _subAccountIdentifier_metadata :: Maybe Object
   -- ^ Defined when an address is not sufficient to uniquely specify a sub-account.
   }
 
@@ -152,7 +142,7 @@ instance ToJSON SubAccountIdentifier where
       Just m -> object (restOfPairs ++ (metaPair m))
     where
       restOfPairs = [ "address" .= add ]
-      metaPair :: SubAccountIdentifierMetaData -> [Pair]
+      metaPair :: Object -> [Pair]
       metaPair m = [ "metadata" .= m ]
 
 instance FromJSON SubAccountIdentifier where
@@ -163,15 +153,6 @@ instance FromJSON SubAccountIdentifier where
       { _subAccountIdentifier_address = add
       , _subAccountIdentifier_metadata = meta
       }
-
-
--- TODO: optional?
-newtype SubAccountIdentifierMetaData = SubAccountIdentifierMetaData ()
-instance ToJSON SubAccountIdentifierMetaData where
-  toJSON _ = object []
-instance FromJSON SubAccountIdentifierMetaData where
-  parseJSON = withObject "SubAccountIdentifierMetaData" $ \_ -> do
-    return $ SubAccountIdentifierMetaData ()
 
 ------------------------------------------------------------------------------
 
@@ -263,7 +244,7 @@ instance FromJSON NetworkIdentifier where
 data SubNetworkIdentifier = SubNetworkIdentifier
   { _subNetworkIdentifier_network :: Text
   -- ^ TODO: "1". Represent chain number. Chains will always be numbers.
-  , _subNetworkIdentifier_metadata :: Maybe SubNetworkIdentifierMetaData
+  , _subNetworkIdentifier_metadata :: Maybe Object
   -- ^ TODO: "mainnet01"? Policy question. Do the care about forks?
   }
 
@@ -284,15 +265,6 @@ instance FromJSON SubNetworkIdentifier where
       { _subNetworkIdentifier_network = sid
       , _subNetworkIdentifier_metadata = m
       }
-
-
--- TODO: optional?
-newtype SubNetworkIdentifierMetaData = SubNetworkIdentifierMetaData ()
-instance ToJSON SubNetworkIdentifierMetaData where
-  toJSON _ = object []
-instance FromJSON SubNetworkIdentifierMetaData where
-  parseJSON = withObject "SubNetworkIdentifierMetaData" $ \_ -> do
-    return $ SubNetworkIdentifierMetaData ()
 
 ------------------------------------------------------------------------------
 
@@ -380,7 +352,7 @@ data Amount = Amount
   --   units (Satoshis) to standard units (Bitcoins).
   -- ^ TODO: Satoshis are the smallest denomination of bitcoin. In US, cents == Satoshis.
   -- ^ TODO: Are atomic units Satoshis? What's the conversion between that and KDA/BTC?
-  , _amount_metadata :: Maybe AmountMetaData
+  , _amount_metadata :: Maybe Object
   }
 
 instance ToJSON Amount where
@@ -391,12 +363,6 @@ instance ToJSON Amount where
     where
       restOfPairs = [ "value" .= v, "currency" .= c ]
       metaPair m = [ "metadata" .= m ]
-
-
--- TODO: optional?
-data AmountMetaData
-instance ToJSON AmountMetaData where
-  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
@@ -410,7 +376,7 @@ data Block = Block
   , _block_timestamp :: Word64
   -- ^ Timestamp of the block in milliseconds since the Unix Epoch
   , _block_transactions :: [Transaction]
-  , _block_metadata :: Maybe BlockMetaData
+  , _block_metadata :: Maybe Object
   }
 
 instance ToJSON Block where
@@ -426,11 +392,6 @@ instance ToJSON Block where
         , "transactions" .= ts ]
       metaPair m = [ "metadata" .= m]
 
-
-data BlockMetaData
-instance ToJSON BlockMetaData where
-  toJSON _ = object []
-
 ------------------------------------------------------------------------------
 
 -- Composed of canonical Symbol and Decimals.
@@ -445,7 +406,7 @@ data Currency = Currency
   -- ^ NOTE: It's not possible to represent the value of some currency in atomic units
   --         that is not base 10.
   -- ^ TODO: What's this for KDA?
-  , _currency_metadata :: Maybe CurrencyMetaData
+  , _currency_metadata :: Maybe Object
   -- ^ Any additiona information related to the currency itself.
   -- ^ Example: It would be useful to populate this object with the contract address of
   --            an ERC-20 token.
@@ -460,12 +421,6 @@ instance ToJSON Currency where
     where
       restOfPairs = [ "symbol" .= s, "decimals" .= d ]
       metaPair m = [ "metadata" .= m ]
-
-
--- TODO: optional?
-data CurrencyMetaData
-instance ToJSON CurrencyMetaData where
-  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
@@ -503,7 +458,7 @@ data Operation = Operation
   -- ^ TODO: Not sure what this could be set to?
   , _operation_account :: Maybe AccountIdentifier
   , _operation_amount :: Maybe Amount
-  , _operation_metadata :: Maybe OperationMetaData
+  , _operation_metadata :: Maybe Object
   }
 
 instance ToJSON Operation where
@@ -521,7 +476,7 @@ instance ToJSON Operation where
       amountPair Nothing = []
       amountPair (Just amt) = [ "amount" .= amt ]
 
-      metaPair :: Maybe OperationMetaData -> [Pair]
+      metaPair :: Maybe Object -> [Pair]
       metaPair Nothing = []
       metaPair (Just m) = [ "metadata" .= m ]
 
@@ -534,12 +489,6 @@ instance ToJSON Operation where
         ++ (amountPair (_operation_amount op))
         ++ (metaPair (_operation_metadata op))
 
-
--- TODO: optional
-data OperationMetaData
-instance ToJSON OperationMetaData where
-  toJSON _ = object []
-
 ------------------------------------------------------------------------------
 
 -- Transactions contain an array of Operations that are attributable to the
@@ -547,7 +496,7 @@ instance ToJSON OperationMetaData where
 data Transaction = Transaction
   { _transaction_transactionIdentifier :: TransactionIdentifier
   , _transaction_operations :: [Operation]
-  , _transaction_metadata :: Maybe TransactionMetaData
+  , _transaction_metadata :: Maybe Object
   -- ^ NOTE: Transactions that are related to other transactions (i.e. cross-shard
   --   transactions) should include the transaction_identifier of these transaction
   --   in the metadata.
@@ -567,13 +516,6 @@ instance ToJSON Transaction where
     where
       restOfPairs = [ "transaction_identifier" .= i, "operations" .= ops ]
       metaPair m = [ "metadata" .= m ]
-
-
--- TODO: Optional?
-data TransactionMetaData
-instance ToJSON TransactionMetaData where
-  toJSON _ = object []
-
 
 ------------------------------------------------------------------------------
 -- Miscellaneous --
@@ -625,7 +567,7 @@ instance ToJSON OperationStatus where
 -- A node's peer
 data RosettaNodePeer = RosettaNodePeer
   { _peer_peerId :: Text
-  , _peer_metadata :: Maybe PeerMetaData
+  , _peer_metadata :: Maybe Object
   }
 
 instance ToJSON RosettaNodePeer where
@@ -636,12 +578,6 @@ instance ToJSON RosettaNodePeer where
     where
       restOfPairs = [ "peer_id" .= i ]
       metaPair m = [ "metadata" .= m ]
-
-
--- TODO: optional?
-data PeerMetaData
-instance ToJSON PeerMetaData where
-  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
@@ -656,7 +592,7 @@ data RosettaNodeVersion = RosettaNodeVersion
   --   manage deployments
   , _version_middlewareVersion :: Maybe Text
   -- ^ Middleware version, if one is used to adhere to the Rosetta interface
-  , _version_metadata :: Maybe VersionMetaData
+  , _version_metadata :: Maybe Object
   -- ^ Any other information that may be useful about versioning of dependent
   --   services
   }
@@ -672,14 +608,8 @@ instance ToJSON RosettaNodeVersion where
       restOfPairs = [ "rosetta_version" .= r, "node_version" .= n ]
       middlePair :: Text -> [Pair]
       middlePair mi = [ "middleware_version" .= mi ]
-      metaPair :: VersionMetaData -> [Pair]
+      metaPair :: Object -> [Pair]
       metaPair meta = [ "metadata" .= meta ]
-
-
--- TODO: optional?
-data VersionMetaData
-instance ToJSON VersionMetaData where
-  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 -- Requests and Responses --
@@ -724,7 +654,7 @@ data AccountBalanceResponse = AccountBalanceResponse
   , _accountBalanceResponse_balances :: [Amount]
   -- ^ A single account may have a balance in multiple currencies
   -- ^ TODO: what?? Is this referring to a ledger that keeps tracks of two tokesn for ex?
-  , _accountBalanceResponse_metadata :: Maybe AccountBalanceResponseMetaData
+  , _accountBalanceResponse_metadata :: Maybe Object
   -- ^ Account-based blockchains that utilize a nonce or sequence number should include
   --   that number in the metadata. This number could be unique to the identifier or global
   --   across the account address.
@@ -739,12 +669,6 @@ instance ToJSON AccountBalanceResponse where
     where
       restOfPairs = [ "block_identifier" .= bi, "balances" .= bals ]
       metaPair m = [ "metadata" .= m ]
-
-
--- TODO: Optional?
-data AccountBalanceResponseMetaData
-instance ToJSON AccountBalanceResponseMetaData where
-  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
@@ -830,7 +754,7 @@ instance ToJSON BlockTransactionResponse where
 -- TODO: Still unsure of what this endpoints does. Need to review endpoints.
 data ConstructionMetadataRequest = ConstructionMetadataRequest
   { _constructionMetadataRequest_networkIdentifier :: NetworkIdentifier
-  , _constructionMetadataRequest_options :: ConstructionMetadataOptions
+  , _constructionMetadataRequest_options :: Object
   -- ^ Specifies which metadata to return
   -- ^ NOTE: Some blockchains require different metadata for different types of
   --         transaction construction (i.e. delegation vs transfer). Instead of
@@ -849,17 +773,9 @@ instance FromJSON ConstructionMetadataRequest where
       , _constructionMetadataRequest_options = opts
       }
 
-
--- TODO
-newtype ConstructionMetadataOptions = ConstructionMetadataOptions ()
-instance FromJSON ConstructionMetadataOptions where
-  parseJSON = withObject "ConstructionMetadataOptions" $ \_ -> do
-    return $ ConstructionMetadataOptions ()
-
-
 -- Returns network-specific metadata used for transaction construction.
 newtype ConstructionMetadataResponse = ConstructionMetadataResponse
-  { _constructionMetadataResponse_metadata :: ConstructionMetadataResponseMetaData
+  { _constructionMetadataResponse_metadata :: Object
   -- ^ NOTE: It's likely that the client will not inspect this metadata before
   --         passing it to a client SDK that uses it for construction.
   -- TODO: How will this json object be used by client SDK??
@@ -868,11 +784,6 @@ newtype ConstructionMetadataResponse = ConstructionMetadataResponse
 instance ToJSON ConstructionMetadataResponse where
   toJSON (ConstructionMetadataResponse m) =
     object [ "metadata" .= m ]
-
--- TODO
-data ConstructionMetadataResponseMetaData
-instance ToJSON ConstructionMetadataResponseMetaData where
-  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
@@ -897,7 +808,7 @@ instance FromJSON ConstructionSubmitRequest where
 -- accepted into the mempool.
 data ConstructionSubmitResponse = ConstructionSubmitResponse
   { _constructionSubmitResponse_transactionIdentifier :: TransactionIdentifier
-  , _constructionSubmitResponse_metadata :: Maybe ConstructionSubmitResponseMetaData
+  , _constructionSubmitResponse_metadata :: Maybe Object
   }
 
 instance ToJSON ConstructionSubmitResponse where
@@ -908,12 +819,6 @@ instance ToJSON ConstructionSubmitResponse where
     where
       restOfPairs = [ "transaction_identifier" .= txId ]
       metaPair m = [ "metadata" .= m ]
-
-
--- TODO: Optional?
-data ConstructionSubmitResponseMetaData
-instance ToJSON ConstructionSubmitResponseMetaData where
-  toJSON _ = object []
 
 ------------------------------------------------------------------------------
 
@@ -962,7 +867,7 @@ instance FromJSON MempoolTransactionRequest where
 --       the mempool (i.e. fee paid)
 data MempoolTransactionResponse = MempoolTransactionResponse
   { _mempoolTransactionResponse_transaction :: Transaction
-  , _mempoolTransactionResponse_metadata :: Maybe MempoolTransactionResponseMetaData
+  , _mempoolTransactionResponse_metadata :: Maybe Object
   }
 
 instance ToJSON MempoolTransactionResponse where
@@ -974,31 +879,18 @@ instance ToJSON MempoolTransactionResponse where
       restOfPairs = [ "transaction" .= tx ]
       metaPair m = [ "metadata" .= m ]
 
-
--- TODO: Optional?
-data MempoolTransactionResponseMetaData
-instance ToJSON MempoolTransactionResponseMetaData where
-  toJSON _ = object []
-
 ------------------------------------------------------------------------------
 
 -- Utilized in any request where the only argument is optional metadata
 -- TODO: Which endpoint(s) use this?? I think its only used in /network/list
 newtype MetadataRequest = MetadataRequest
-  { _metadataRequest_metadata :: Maybe MetadataRequestMetaData
+  { _metadataRequest_metadata :: Maybe Object
   }
 
 instance FromJSON MetadataRequest where
   parseJSON = withObject "MetadataRequest" $ \o -> do
     m <- o .:? "metadata"
     return $ MetadataRequest m
-
--- TODO
-newtype MetadataRequestMetaData = MetadataRequestMetaData ()
-instance FromJSON MetadataRequestMetaData where
-  parseJSON = withObject "MetadataRequestMetaData" $ \_ -> do
-    return $ MetadataRequestMetaData ()
-
 
 ------------------------------------------------------------------------------
 
@@ -1032,7 +924,7 @@ instance ToJSON NetworkOptionsResponse where
 -- Utilized to retrieve some data specific exclusively to a network identifier.
 data NetworkRequest = NetworkRequest
   { _networkRequest_networkIdentifier :: NetworkIdentifier
-  , _networkRequest_metadata :: Maybe NetworkRequestMetaData
+  , _networkRequest_metadata :: Maybe Object
   }
 
 instance FromJSON NetworkRequest where
@@ -1044,21 +936,15 @@ instance FromJSON NetworkRequest where
       , _networkRequest_metadata = m
       }
 
--- TODO: optional?
-newtype NetworkRequestMetaData = NetworkRequestMetaData ()
-instance FromJSON NetworkRequestMetaData where
-  parseJSON = withObject "NetworkRequestMetaData" $ \_ -> do
-    return $ NetworkRequestMetaData ()
-
 ------------------------------------------------------------------------------
 
 -- Contains basic information about the node's view of a blockchain network
 data NetworkStatusResponse = NetworkStatusResponse
-  { _NetworkStatusResponse_currentBlockIdentifier :: BlockIdentifier
-  , _NetworkStatusResponse_currentBlockTimestamp :: Word64
+  { _networkStatusResponse_currentBlockIdentifier :: BlockIdentifier
+  , _networkStatusResponse_currentBlockTimestamp :: Word64
   -- ^ Timestamp of the block in milliseconds since the Unix Epoch.
-  , _NetworkStatusResponse_genesisBlockIdentifier :: BlockIdentifier
-  , _NetworkStatusResponse_peers :: [RosettaNodePeer]
+  , _networkStatusResponse_genesisBlockIdentifier :: BlockIdentifier
+  , _networkStatusResponse_peers :: [RosettaNodePeer]
   }
 
 instance ToJSON NetworkStatusResponse where
