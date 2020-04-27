@@ -1,6 +1,63 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Rosetta where
+-- |
+-- Module    : Rosetta
+-- Copyright : (c) Kadena LLC 2020
+-- License   : BSD3
+-- Maintainer: Linda Ortega <linda.ortega2013@gmail.com>
+--
+-- Haskell types for the Rosetta API.
+
+module Rosetta
+  ( -- * Data Types
+    -- ** Core
+    Amount(..)
+  , Block(..)
+  , Currency(..)
+  , Operation(..)
+  , Transaction(..)
+    -- ** Identifiers
+  , AccountIdentifier(..)
+  , SubAccountIdentifier(..)
+  , BlockIdentifier(..)
+  , PartialBlockIdentifier(..)
+  , NetworkIdentifier(..)
+  , SubNetworkIdentifier(..)
+  , OperationIdentifier(..)
+  , TransactionIdentifier(..)
+    -- * Network Metadata Types
+  , Allow(..)
+  , OperationStatus(..)
+  , RosettaNodePeer(..)
+  , RosettaNodeVersion(..)
+    -- * Wire Types
+    -- ** Accounts
+  , AccountBalanceRequest(..)
+  , AccountBalanceResponse(..)
+    -- ** Blocks
+  , BlockRequest(..)
+  , BlockResponse(..)
+  , BlockTransactionRequest(..)
+  , BlockTransactionResponse(..)
+    -- ** Construction
+  , ConstructionMetadataRequest(..)
+  , ConstructionMetadataResponse(..)
+  , ConstructionSubmitRequest(..)
+  , ConstructionSubmitResponse(..)
+    -- ** Mempool
+  , MempoolRequest(..)
+  , MempoolResponse(..)
+  , MempoolTransactionRequest(..)
+  , MempoolTransactionResponse(..)
+    -- ** Network
+  , MetadataRequest(..)
+  , NetworkRequest(..)
+  , NetworkListResponse(..)
+  , NetworkOptionsResponse(..)
+  , NetworkStatusResponse(..)
+    -- * Errors
+  , RosettaError(..)
+  ) where
 
 ------------------------------------------------------------------------------
 import Data.Aeson
