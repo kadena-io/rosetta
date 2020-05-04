@@ -10,7 +10,7 @@
 
 module Rosetta
   ( -- * Data Types
-    currRosettaVersion
+    rosettaSpecVersion
     -- ** Core
   , Amount(..)
   , Block(..)
@@ -67,8 +67,8 @@ import Data.Text (Text)
 import Data.Word (Word64)
 ------------------------------------------------------------------------------
 
-currRosettaVersion :: Text
-currRosettaVersion = "1.3.1"
+rosettaSpecVersion :: Text
+rosettaSpecVersion = "1.3.1"
 
 ------------------------------------------------------------------------------
 -- Identifiers --
