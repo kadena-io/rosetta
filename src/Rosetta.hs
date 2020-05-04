@@ -10,8 +10,9 @@
 
 module Rosetta
   ( -- * Data Types
+    currRosettaVersion
     -- ** Core
-    Amount(..)
+  , Amount(..)
   , Block(..)
   , Currency(..)
   , Operation(..)
@@ -65,6 +66,9 @@ import Data.Aeson.Types (Pair)
 import Data.Text (Text)
 import Data.Word (Word64)
 ------------------------------------------------------------------------------
+
+currRosettaVersion :: Text
+currRosettaVersion = "1.3.1"
 
 ------------------------------------------------------------------------------
 -- Identifiers --
