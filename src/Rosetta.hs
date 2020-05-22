@@ -1,3 +1,7 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- |
@@ -61,10 +65,15 @@ module Rosetta
   ) where
 
 ------------------------------------------------------------------------------
+
+import Control.DeepSeq (NFData)
 import Data.Aeson
 import Data.Aeson.Types (Pair)
 import Data.Text (Text)
 import Data.Word (Word64)
+
+import GHC.Generics (Generic)
+
 ------------------------------------------------------------------------------
 
 rosettaSpecVersion :: Text
@@ -101,7 +110,7 @@ data AccountId = AccountId
   --         which cryptographic curve it uses (? don't think we can derive this just from key set in pact)
   --         (i.e. ED25519) or guard associated with the account.
   -- ^ TODO: How will others know how to parse meta datas?
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON AccountId where
   toJSON (AccountId add someSub someMeta) =
@@ -137,7 +146,7 @@ data SubAccountId = SubAccountId
   -- ^ A cryptographic value or other identifier
   , _subAccountId_metadata :: Maybe Object
   -- ^ Defined when an address is not sufficient to uniquely specify a sub-account.
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON SubAccountId where
   toJSON (SubAccountId add someMeta) =
@@ -167,7 +176,7 @@ data BlockId = BlockId
   { _blockId_index :: Word64
   -- ^ The block height
   , _blockId_hash :: Text
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON BlockId where
   toJSON (BlockId idx hsh) =
@@ -191,7 +200,7 @@ instance FromJSON BlockId where
 data PartialBlockId = PartialBlockId
   { _partialBlockId_index :: Maybe Word64
   , _partialBlockId_hash :: Maybe Text
-  }
+  }deriving (Eq, Show, Generic, NFData)
 
 instance FromJSON PartialBlockId where
   parseJSON = withObject "PartialBlockId" $ \o -> do
@@ -220,7 +229,7 @@ data NetworkId = NetworkId
   -- ^ TODO: Is Kadena a sharded blockchain? YES
   -- ^ TODO: how are they expecting optional values? Null or just missing? They just the field to be missing!
   --         Javascript clients may assume existance of a field key is important. Without noticing if its null.
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON NetworkId where
   toJSON (NetworkId bid netId someSubNetId) =
@@ -250,7 +259,7 @@ data SubNetworkId = SubNetworkId
   -- ^ TODO: "1". Represent chain number. Chains will always be numbers.
   , _subNetworkId_metadata :: Maybe Object
   -- ^ TODO: "mainnet01"? Policy question. Do the care about forks?
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON SubNetworkId where
   toJSON (SubNetworkId sid someMeta) =
@@ -286,7 +295,7 @@ data OperationId = OperationId
   -- ^ TODO: docs say that nework index should not be populated if there's no notion
   --         of an operation index in a blockchain (i.e. most account-based blockchains).
   --         Does this apply to Kadena?
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON OperationId where
   toJSON (OperationId idx someNetIdx) =
@@ -307,6 +316,8 @@ newtype TransactionId = TransactionId
   --   should use the hash of the block as the identifier.
   -- ^ TODO: Does Kadena have transactions attributable only to a block? I don't think so.
   }
+  deriving stock (Eq, Show, Generic)
+  deriving newtype (NFData)
 
 instance ToJSON TransactionId where
   toJSON (TransactionId h) =
@@ -332,7 +343,7 @@ data Allow = Allow
   -- ^ All Operation.Type this implementation supports
   , _allow_errors :: [RosettaError]
   -- ^ All Errors that this implementation could return
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON Allow where
   toJSON (Allow st typ err) =
@@ -357,7 +368,7 @@ data Amount = Amount
   -- ^ TODO: Satoshis are the smallest denomination of bitcoin. In US, cents == Satoshis.
   -- ^ TODO: Are atomic units Satoshis? What's the conversion between that and KDA/BTC?
   , _amount_metadata :: Maybe Object
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON Amount where
   toJSON (Amount v c someMeta) =
@@ -381,7 +392,7 @@ data Block = Block
   -- ^ Timestamp of the block in milliseconds since the Unix Epoch
   , _block_transactions :: [Transaction]
   , _block_metadata :: Maybe Object
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON Block where
   toJSON (Block bi pbi t ts someMeta) =
@@ -415,7 +426,7 @@ data Currency = Currency
   -- ^ Example: It would be useful to populate this object with the contract address of
   --            an ERC-20 token.
   -- ^ TODO: meaning of "contract address" in KDA terms? Just the namespace.moduleName of token?
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON Currency where
   toJSON (Currency s d someMeta) =
@@ -463,7 +474,7 @@ data Operation = Operation
   , _operation_account :: Maybe AccountId
   , _operation_amount :: Maybe Amount
   , _operation_metadata :: Maybe Object
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON Operation where
   toJSON op = object allPairs
@@ -510,7 +521,7 @@ data Transaction = Transaction
   --         If this tx is the receive one, include the tx id from the initial cross-chain.
   --         Pacts in general are related transactions.
   -- ^ TODO: the list of operations, we need to show the changes in account balance.
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON Transaction where
   toJSON (Transaction i ops someMeta) =
@@ -535,7 +546,7 @@ data RosettaError = RosettaError
   -- ^ TODO: based on Allow specifications, message should be abstract enough?
   , _error_retriable :: Bool
   -- ^ Indicates whether the request COULD succeed if submitted again
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON RosettaError where
   toJSON (RosettaError c msg b) =
@@ -559,7 +570,7 @@ data OperationStatus = OperationStatus
   -- ^ Whether an operation is considered successful
   -- ^ Set to true if the Operation.Amount should affect the Operation.Account
   -- ^ TODO: whether an operation affects the amount in an Account?
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON OperationStatus where
   toJSON (OperationStatus s b) =
@@ -572,7 +583,7 @@ instance ToJSON OperationStatus where
 data RosettaNodePeer = RosettaNodePeer
   { _peer_peerId :: Text
   , _peer_metadata :: Maybe Object
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON RosettaNodePeer where
   toJSON (RosettaNodePeer i someMeta) =
@@ -599,7 +610,7 @@ data RosettaNodeVersion = RosettaNodeVersion
   , _version_metadata :: Maybe Object
   -- ^ Any other information that may be useful about versioning of dependent
   --   services
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON RosettaNodeVersion where
   toJSON (RosettaNodeVersion r n someMiddle someMeta) =
@@ -638,7 +649,7 @@ data AccountBalanceReq = AccountBalanceReq
   , _accountBalanceReq_blockId :: Maybe PartialBlockId
   -- ^ NOTE: when index and hash fields missing, it's assumed the client
   --         is making a request at the current block.
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance FromJSON AccountBalanceReq where
   parseJSON = withObject "AccountBalanceReq" $ \o -> do
@@ -663,7 +674,7 @@ data AccountBalanceResp = AccountBalanceResp
   --   that number in the metadata. This number could be unique to the identifier or global
   --   across the account address.
   -- ^ TODO: Is Kadena an account-based blockchain?
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON AccountBalanceResp where
   toJSON (AccountBalanceResp bi bals someMeta) =
@@ -680,7 +691,7 @@ instance ToJSON AccountBalanceResp where
 data BlockReq = BlockReq
  { _blockReq_networkId :: NetworkId
  , _blockReq_blockId :: PartialBlockId
- }
+ } deriving (Eq, Show, Generic, NFData)
 
 instance FromJSON BlockReq where
   parseJSON = withObject "BlockReq" $ \o -> do
@@ -708,7 +719,7 @@ data BlockResp = BlockResp
   --         can concurrently fetch all transactions returned.
   -- ^ TODO: I think we do this. But then how do we populate Block's transactions
   --         field?
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON BlockResp where
   toJSON (BlockResp b someOtherTxs) =
@@ -728,7 +739,7 @@ data BlockTransactionReq = BlockTransactionReq
   { _blockTransactionReq_networkId :: NetworkId
   , _blockTransactionReq_blockId :: BlockId
   , _blockTransactionReq_transactionId :: TransactionId
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance FromJSON BlockTransactionReq where
   parseJSON = withObject "BlockTransactionReq" $ \o -> do
@@ -746,6 +757,8 @@ instance FromJSON BlockTransactionReq where
 newtype BlockTransactionResp = BlockTransactionResp
   { _blockTransactionResp_transaction :: Transaction
   }
+  deriving stock (Eq, Show, Generic)
+  deriving newtype (NFData)
 
 instance ToJSON BlockTransactionResp where
   toJSON (BlockTransactionResp tx) = object [ "transaction" .= tx ]
@@ -766,7 +779,7 @@ data ConstructionMetadataReq = ConstructionMetadataReq
   --         for construction (which may require multiple node fetches), the client
   --         can populate an optios object to limit the metadata returned to only
   --         the subset required.
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance FromJSON ConstructionMetadataReq where
   parseJSON = withObject "ConstructionMetadataReq" $ \o -> do
@@ -784,6 +797,9 @@ newtype ConstructionMetadataResp = ConstructionMetadataResp
   --         passing it to a client SDK that uses it for construction.
   -- TODO: How will this json object be used by client SDK??
   }
+  deriving stock (Eq, Show, Generic)
+  deriving newtype (NFData)
+
 
 instance ToJSON ConstructionMetadataResp where
   toJSON (ConstructionMetadataResp m) =
@@ -796,7 +812,7 @@ data ConstructionSubmitReq = ConstructionSubmitReq
   { _constructionSubmitReq_networkId :: NetworkId
   , _constructionSubmitReq_signedTransaction :: Text
   -- ^ The signed transaction
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance FromJSON ConstructionSubmitReq where
   parseJSON = withObject "ConstructionSubmitReq" $ \o -> do
@@ -831,6 +847,8 @@ instance ToJSON ConstructionSubmitResp where
 newtype MempoolReq = MempoolReq
   { _mempoolReq_networkId :: NetworkId
   }
+  deriving stock (Eq, Show, Generic)
+  deriving newtype (NFData)
 
 instance FromJSON MempoolReq where
   parseJSON = withObject "MempoolReq" $ \o -> do
@@ -842,6 +860,8 @@ instance FromJSON MempoolReq where
 newtype MempoolResp = MempoolResp
   { _mempoolResp_transactionIds :: [TransactionId]
   }
+  deriving stock (Eq, Show, Generic)
+  deriving newtype (NFData)
 
 instance ToJSON MempoolResp where
   toJSON (MempoolResp txs) =
@@ -854,7 +874,7 @@ instance ToJSON MempoolResp where
 data MempoolTransactionReq = MempoolTransactionReq
   { _mempoolTransactionReq_networkId :: NetworkId
   , _mempoolTransactionReq_transactionId :: TransactionId
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance FromJSON MempoolTransactionReq where
   parseJSON = withObject "MempoolTransactionReq" $ \o -> do
@@ -872,7 +892,7 @@ instance FromJSON MempoolTransactionReq where
 data MempoolTransactionResp = MempoolTransactionResp
   { _mempoolTransactionResp_transaction :: Transaction
   , _mempoolTransactionResp_metadata :: Maybe Object
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON MempoolTransactionResp where
   toJSON (MempoolTransactionResp tx someMeta) =
@@ -890,6 +910,8 @@ instance ToJSON MempoolTransactionResp where
 newtype MetadataReq = MetadataReq
   { _metadataReq_metadata :: Maybe Object
   }
+  deriving stock (Eq, Show, Generic)
+  deriving newtype (NFData)
 
 instance FromJSON MetadataReq where
   parseJSON = withObject "MetadataReq" $ \o -> do
@@ -903,6 +925,8 @@ instance FromJSON MetadataReq where
 newtype NetworkListResp = NetworkListResp
   { _networkListResp_networkIds :: [NetworkId]
   }
+  deriving stock (Eq, Show, Generic)
+  deriving newtype (NFData)
 
 instance ToJSON NetworkListResp where
   toJSON (NetworkListResp netIds) =
@@ -916,7 +940,7 @@ instance ToJSON NetworkListResp where
 data NetworkOptionsResp = NetworkOptionsResp
   { _networkOptionsResp_version :: RosettaNodeVersion
   , _networkOptionsResp_allow :: Allow
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON NetworkOptionsResp where
   toJSON (NetworkOptionsResp v allow) =
@@ -929,7 +953,7 @@ instance ToJSON NetworkOptionsResp where
 data NetworkReq = NetworkReq
   { _networkReq_networkId :: NetworkId
   , _networkReq_metadata :: Maybe Object
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance FromJSON NetworkReq where
   parseJSON = withObject "NetworkReq" $ \o -> do
@@ -949,7 +973,7 @@ data NetworkStatusResp = NetworkStatusResp
   -- ^ Timestamp of the block in milliseconds since the Unix Epoch.
   , _networkStatusResp_genesisBlockId :: BlockId
   , _networkStatusResp_peers :: [RosettaNodePeer]
-  }
+  } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON NetworkStatusResp where
   toJSON (NetworkStatusResp currBlockId currBlockTime genesis peers) =
