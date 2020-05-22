@@ -829,7 +829,7 @@ instance FromJSON ConstructionSubmitReq where
 data ConstructionSubmitResp = ConstructionSubmitResp
   { _constructionSubmitResp_transactionId :: TransactionId
   , _constructionSubmitResp_metadata :: Maybe Object
-  }
+  }  deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON ConstructionSubmitResp where
   toJSON (ConstructionSubmitResp txId someMeta) =
