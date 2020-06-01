@@ -89,27 +89,14 @@ data AccountId = AccountId
   { _accountId_address :: Text
   -- ^ Account address
   -- ^ Examples: cryptographic public key, some encoding of it, or username
-  -- ^ TODO: this should probably correspond to the user's key in the specific ledger.
-  --         i.e. the key in the coin contract.
 
   , _accountId_subAccount :: Maybe SubAccountId
   -- ^ An account may have state specific to a contract address (ERC-20 token)
   --   and/or a stake (delegated balance).
-  -- ^ TODO: confused by the wording of this.
-  -- ^ TODO: should this be used to state which contract (i.e. coin contract,
-  --         some other token contract) the account refers to?
-  --         Seems to be the case based on comment here:
-  --            "If an account has a balance for each AccountId describing
-  --             it (ex: an ERC-20 token balance on a few smart contracts)"
 
   , _accountId_metadata :: Maybe Object
   -- ^ If blockchain allows using a username model, the public key(s) owned
   --   by this address should be specified in metadata.
-  -- ^ TODO: What does it mean by "public keys owned by"?
-  -- ^ TODO: Since we allow for username, we should include the keyset (and
-  --         which cryptographic curve it uses (? don't think we can derive this just from key set in pact)
-  --         (i.e. ED25519) or guard associated with the account.
-  -- ^ TODO: How will others know how to parse meta datas?
   } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON AccountId where
@@ -170,8 +157,6 @@ instance FromJSON SubAccountId where
 ------------------------------------------------------------------------------
 
 -- Uniquely identifies a block in a particular network
--- TODO: how to define a chain?
--- TODO: check to make sure that whenever a Block is returned, ntwork idetifier is also returned.
 data BlockId = BlockId
   { _blockId_index :: Word64
   -- ^ The block height
@@ -217,18 +202,11 @@ instance FromJSON PartialBlockId where
 data NetworkId = NetworkId
   { _networkId_blockchain :: Text
   -- ^ Name of the blockchain
-  -- ^ TODO: "kadena"
-
   , _networkId_network :: Text
   -- ^ Specific chain-id or network identifier
-  -- ^ TODO: up to client to determine which network-specific identifier is mainnet or testnet?
-
   , _networkId_subNetworkId :: Maybe SubNetworkId
   -- ^ Sharded state identifier used to query object on specific shard
   -- ^ Required for all sharded blockchains
-  -- ^ TODO: Is Kadena a sharded blockchain? YES
-  -- ^ TODO: how are they expecting optional values? Null or just missing? They just the field to be missing!
-  --         Javascript clients may assume existance of a field key is important. Without noticing if its null.
   } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON NetworkId where
@@ -256,9 +234,7 @@ instance FromJSON NetworkId where
 -- TODO: optional?
 data SubNetworkId = SubNetworkId
   { _subNetworkId_network :: Text
-  -- ^ TODO: "1". Represent chain number. Chains will always be numbers.
   , _subNetworkId_metadata :: Maybe Object
-  -- ^ TODO: "mainnet01"? Policy question. Do the care about forks?
   } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON SubNetworkId where
@@ -282,9 +258,6 @@ instance FromJSON SubNetworkId where
 ------------------------------------------------------------------------------
 
 -- Uniquely identifies an operation within a transaction
--- TODO: No idea what an operation refers to?
--- TODO: Docs mention that not all blockchains have a notion of an operation index.
--- TODO: They don't specify what Operations are. Free
 data OperationId = OperationId
   { _operationId_index :: Word64
   -- ^ Unique identifier for each operation within a transaction
@@ -292,9 +265,8 @@ data OperationId = OperationId
   -- ^ Optional network index associated with a given operation index
   -- ^ Example: Bitcoin uses a network index to identity which UTXO was used in a
   --            transaction.
-  -- ^ TODO: docs say that nework index should not be populated if there's no notion
-  --         of an operation index in a blockchain (i.e. most account-based blockchains).
-  --         Does this apply to Kadena?
+  -- ^ Nework index should not be populated if there's no notion
+  --   of an operation index in a blockchain (i.e. most account-based blockchains).
   } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON OperationId where
@@ -314,7 +286,6 @@ newtype TransactionId = TransactionId
   { _transactionId_hash :: Text
   -- ^ Any transactions that are attributable only to a block (i.e. block event)
   --   should use the hash of the block as the identifier.
-  -- ^ TODO: Does Kadena have transactions attributable only to a block? I don't think so.
   }
   deriving stock (Eq, Show, Generic)
   deriving newtype (NFData)
@@ -359,14 +330,10 @@ data Amount = Amount
   -- ^ Value of the transaction in atomic units represented as an
   --   arbitrary-sized signed integer.
   -- ^ Example: 1 BTC would be represented by a value of 100,000,000
-  -- ^ TODO: don't understand the example?
-  -- ^ TODO: We should model gas payments as KDA not gas units. And negative amounts refers to money leaving. Hence why they have "signed integer".
   , _amount_currency :: Currency
   -- ^ Composed of a canonical Symbol and Decimals
   -- ^ This Decimals value is used to convert an Amount.Value from atomic
   --   units (Satoshis) to standard units (Bitcoins).
-  -- ^ TODO: Satoshis are the smallest denomination of bitcoin. In US, cents == Satoshis.
-  -- ^ TODO: Are atomic units Satoshis? What's the conversion between that and KDA/BTC?
   , _amount_metadata :: Maybe Object
   } deriving (Eq, Show, Generic, NFData)
 
@@ -418,14 +385,10 @@ data Currency = Currency
   , _currency_decimals :: Word
   -- ^ Number of decimal places in the standard unit representation of the amount
   -- ^ Example: BTC has 8 decimals.
-  -- ^ NOTE: It's not possible to represent the value of some currency in atomic units
-  --         that is not base 10.
-  -- ^ TODO: What's this for KDA?
   , _currency_metadata :: Maybe Object
   -- ^ Any additiona information related to the currency itself.
   -- ^ Example: It would be useful to populate this object with the contract address of
   --            an ERC-20 token.
-  -- ^ TODO: meaning of "contract address" in KDA terms? Just the namespace.moduleName of token?
   } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON Currency where
@@ -442,10 +405,6 @@ instance ToJSON Currency where
 -- Operations contain all balance-changing information within a transaction.
 -- They are always one-sided (only affect 1 AccountId) and can succeed
 -- or fail idependently from a Transaction.
--- NOTE: A tx can succeed but you
--- For every transaction that occurrs, there's at least two transaction.
--- The gas payment leaving, the miner getting rewards, and coinbase.
--- coinbase (system), all of the gas limit * price withdrawn from the user (atomic), (pact) *money comes out from tx (atomic) optional*, gas payment to miner (atomic), gas refund to gas payer (optional) 0 (atomic).
 data Operation = Operation
   { _operation_operationId :: OperationId
   -- ^ Uniquely identifies an operation within a transaction
@@ -461,16 +420,13 @@ data Operation = Operation
   --   NetworkStatus. This can be useful to downstream consumers that parse all
   --   block data.
   -- Example: "Transfer"
-  -- TODO: Is "NetworkStatus" a typo? Does it mean Allow's operationTypes?
-  --       They meant NetworkOptionsResp.
   , _operation_status :: Text
   -- ^ The network-specific status of the operation.
   -- ^ Status is not defined on the transaction object because blockchains with
-  --   smart contracts may have tranasaction that particually apply.
+  --   smart contracts may have tranasaction that partially apply.
   -- ^ Blockchains with atomic transactions (all operations succeed or all fail)
   --   will have the same status for each operation.
   -- ^ Example: "Reverted"
-  -- ^ TODO: Not sure what this could be set to?
   , _operation_account :: Maybe AccountId
   , _operation_amount :: Maybe Amount
   , _operation_metadata :: Maybe Object
@@ -515,12 +471,6 @@ data Transaction = Transaction
   -- ^ NOTE: Transactions that are related to other transactions (i.e. cross-shard
   --   transactions) should include the transaction_identifier of these transaction
   --   in the metadata.
-  -- ^ TODO: Does the NOTE mean that cross-chain transactions should include the
-  --         the transaction id of the transaction that burned in the previous chain?
-  --         Are there other examples of "related transactions"?
-  --         If this tx is the receive one, include the tx id from the initial cross-chain.
-  --         Pacts in general are related transactions.
-  -- ^ TODO: the list of operations, we need to show the changes in account balance.
   } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON Transaction where
@@ -543,7 +493,6 @@ data RosettaError = RosettaError
   -- ^ Can be equivalent to an HTTP status code
   , _error_message :: Text
   -- ^ Network-specific error message
-  -- ^ TODO: based on Allow specifications, message should be abstract enough?
   , _error_retriable :: Bool
   -- ^ Indicates whether the request COULD succeed if submitted again
   } deriving (Eq, Show, Generic, NFData)
@@ -562,14 +511,12 @@ instance ToJSON RosettaError where
 --       unsuccessful operations that incur a fee.
 -- NOTE: Thus, it's critical to understand which Operation.Status indicate an
 --       Operation is successful and should affect an Account.
--- TODO: not sure I understood that last NOTE?
 data OperationStatus = OperationStatus
   { _operationStatus_status :: Text
   -- ^ Network-specific status of the operation
   , _operationStatus_successful :: Bool
   -- ^ Whether an operation is considered successful
   -- ^ Set to true if the Operation.Amount should affect the Operation.Account
-  -- ^ TODO: whether an operation affects the amount in an Account?
   } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON OperationStatus where
@@ -630,19 +577,12 @@ instance ToJSON RosettaNodeVersion where
 -- Requests and Responses --
 ------------------------------------------------------------------------------
 
--- TODO:
--- All the Request types should have FromJSON.
--- All Response should have ToJSON.
-
-
 -- Utilized to make a balance request on the /account/balance endpoint.
 -- NOTE: If a blockId is populated, a historical balance query
 --       should be performed.
 -- NOTE:  If an account has a balance for each AccountId describing it
 --        (ex: an ERC-20 token balance on a few smart contracts), an account balance
 --        request must be made with each AccountId.
--- TODO: What does the first NOTE mean by "historical balance query"? At a particular
---       block?
 data AccountBalanceReq = AccountBalanceReq
   { _accountBalanceReq_networkId :: NetworkId
   , _accountBalanceReq_accountId :: AccountId
@@ -668,12 +608,10 @@ data AccountBalanceResp = AccountBalanceResp
   { _accountBalanceResp_blockId :: BlockId
   , _accountBalanceResp_balances :: [Amount]
   -- ^ A single account may have a balance in multiple currencies
-  -- ^ TODO: what?? Is this referring to a ledger that keeps tracks of two tokesn for ex?
   , _accountBalanceResp_metadata :: Maybe Object
   -- ^ Account-based blockchains that utilize a nonce or sequence number should include
   --   that number in the metadata. This number could be unique to the identifier or global
   --   across the account address.
-  -- ^ TODO: Is Kadena an account-based blockchain?
   } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON AccountBalanceResp where
@@ -705,9 +643,6 @@ instance FromJSON BlockReq where
 
 -- Includes a fully-populated block or a partially-populated block with a list
 -- of other transactions to fetch.
--- TODO: What's a partially-populated block??
---       Why do the other transactions have to be fetched?
---       You can send the block with all the transactions in it, or just the transaction hash.
 data BlockResp = BlockResp
   { _blockResp_block :: Block
   -- ^ Array of Transactions that occurred at a particular block
@@ -717,8 +652,6 @@ data BlockResp = BlockResp
   --         returns transaction hashes). For blockchains with a lot of
   --         transaction in each block, this can be very useful as consumers
   --         can concurrently fetch all transactions returned.
-  -- ^ TODO: I think we do this. But then how do we populate Block's transactions
-  --         field?
   } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON BlockResp where
@@ -768,7 +701,6 @@ instance ToJSON BlockTransactionResp where
 
 -- Utilized to get information required to construct a transaction
 -- on the /construction/metadata endpoint.
--- TODO: Still unsure of what this endpoints does. Need to review endpoints.
 data ConstructionMetadataReq = ConstructionMetadataReq
   { _constructionMetadataReq_networkId :: NetworkId
   , _constructionMetadataReq_options :: Object
@@ -795,7 +727,6 @@ newtype ConstructionMetadataResp = ConstructionMetadataResp
   { _constructionMetadataResp_metadata :: Object
   -- ^ NOTE: It's likely that the client will not inspect this metadata before
   --         passing it to a client SDK that uses it for construction.
-  -- TODO: How will this json object be used by client SDK??
   }
   deriving stock (Eq, Show, Generic)
   deriving newtype (NFData)
@@ -906,7 +837,6 @@ instance ToJSON MempoolTransactionResp where
 ------------------------------------------------------------------------------
 
 -- Utilized in any request where the only argument is optional metadata
--- TODO: Which endpoint(s) use this?? I think its only used in /network/list
 newtype MetadataReq = MetadataReq
   { _metadataReq_metadata :: Maybe Object
   }
