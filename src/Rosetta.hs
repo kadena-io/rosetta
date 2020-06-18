@@ -69,6 +69,7 @@ module Rosetta
 import Control.DeepSeq (NFData)
 import Data.Aeson
 import Data.Aeson.Types (Pair)
+import Data.Foldable (foldl')
 import Data.Text (Text)
 import Data.Word (Word64)
 
@@ -185,7 +186,13 @@ instance FromJSON BlockId where
 data PartialBlockId = PartialBlockId
   { _partialBlockId_index :: Maybe Word64
   , _partialBlockId_hash :: Maybe Text
-  }deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData)
+
+instance ToJSON PartialBlockId where
+  toJSON (PartialBlockId somebhi somebhsh) =
+    toJSONOmitMaybe []
+    [ maybePair "index" somebhi
+    , maybePair "hash" somebhsh ]
 
 instance FromJSON PartialBlockId where
   parseJSON = withObject "PartialBlockId" $ \o -> do
@@ -278,6 +285,15 @@ instance ToJSON OperationId where
       restOfPairs = [ "index" .= idx ]
       netIdxPair ni = [ "network_index" .= ni ]
 
+instance FromJSON OperationId where
+  parseJSON = withObject "OperationId" $ \o -> do
+    idx <- o .: "index"
+    netIdx <- o .:? "network_index"
+    return $ OperationId
+      { _operationId_index = idx
+      , _operationId_networkIndex = netIdx
+      }
+
 ------------------------------------------------------------------------------
 
 -- Uniquely identifies a transaction in a particular network and block
@@ -322,6 +338,17 @@ instance ToJSON Allow where
            , "operation_types" .= typ
            , "errors" .= err ]
 
+instance FromJSON Allow where
+  parseJSON = withObject "Allow" $ \o -> do
+    st <- o .: "operation_statuses"
+    typ <- o .: "operation_types"
+    err <- o .: "errors"
+    return $ Allow
+      { _allow_operationStatuses = st
+      , _allow_operationTypes = typ
+      , _allow_errors = err
+      }
+
 ------------------------------------------------------------------------------
 
 -- Some value of a currency
@@ -345,6 +372,17 @@ instance ToJSON Amount where
     where
       restOfPairs = [ "value" .= v, "currency" .= c ]
       metaPair m = [ "metadata" .= m ]
+
+instance FromJSON Amount where
+  parseJSON = withObject "Amount" $ \o -> do
+    v <- o .: "value"
+    c <- o .: "currency"
+    m <- o .:? "metadata"
+    return $ Amount
+      { _amount_value = v
+      , _amount_currency = c
+      , _amount_metadata = m
+      }
 
 ------------------------------------------------------------------------------
 
@@ -374,6 +412,21 @@ instance ToJSON Block where
         , "transactions" .= ts ]
       metaPair m = [ "metadata" .= m]
 
+instance FromJSON Block where
+  parseJSON = withObject "Block" $ \o -> do
+    bi <- o .: "block_identifier"
+    pbi <- o .: "parent_block_identifier"
+    t <- o .: "timestamp"
+    ts <- o .: "transactions"
+    m <- o .:? "metadata"
+    return $ Block
+      { _block_blockId = bi
+      , _block_parentBlockId = pbi
+      , _block_timestamp = t
+      , _block_transactions = ts
+      , _block_metadata = m
+      }
+
 ------------------------------------------------------------------------------
 
 -- Composed of canonical Symbol and Decimals.
@@ -399,6 +452,17 @@ instance ToJSON Currency where
     where
       restOfPairs = [ "symbol" .= s, "decimals" .= d ]
       metaPair m = [ "metadata" .= m ]
+
+instance FromJSON Currency where
+  parseJSON = withObject "Currency" $ \o -> do
+    s <- o .: "symbol"
+    d <- o .: "decimals"
+    m <- o .:? "metadata"
+    return $ Currency
+      { _currency_symbol = s
+      , _currency_decimals = d
+      , _currency_metadata = m
+      }
 
 ------------------------------------------------------------------------------
 
@@ -460,6 +524,25 @@ instance ToJSON Operation where
         ++ (amountPair (_operation_amount op))
         ++ (metaPair (_operation_metadata op))
 
+instance FromJSON Operation where
+  parseJSON = withObject "Operation" $ \o -> do
+    oid <- o .: "operation_identifier"
+    rops <- o .:? "related_operations"
+    typ <- o .: "type"
+    stat <- o .: "status"
+    acct <- o .:? "account"
+    amt <- o .:? "amount"
+    m <- o .:? "metadata"
+    return $ Operation
+      { _operation_operationId = oid
+      , _operation_relatedOperations = rops
+      , _operation_type = typ
+      , _operation_status = stat
+      , _operation_account = acct
+      , _operation_amount = amt
+      , _operation_metadata = m
+      }
+
 ------------------------------------------------------------------------------
 
 -- Transactions contain an array of Operations that are attributable to the
@@ -482,6 +565,17 @@ instance ToJSON Transaction where
       restOfPairs = [ "transaction_identifier" .= i, "operations" .= ops ]
       metaPair m = [ "metadata" .= m ]
 
+instance FromJSON Transaction where
+  parseJSON = withObject "Transaction" $ \o -> do
+    i <- o .: "transaction_identifier"
+    ops <- o .: "operations"
+    m <- o .:? "metadata"
+    return $ Transaction
+      { _transaction_transactionId = i
+      , _transaction_operations = ops
+      , _transaction_metadata = m
+      }
+
 ------------------------------------------------------------------------------
 -- Miscellaneous --
 ------------------------------------------------------------------------------
@@ -502,6 +596,17 @@ instance ToJSON RosettaError where
     object [ "code" .= c
            , "message" .= msg
            , "retriable" .= b ]
+
+instance FromJSON RosettaError where
+  parseJSON = withObject "RosettaError" $ \o -> do
+    c <- o .: "code"
+    msg <- o .: "message"
+    b <- o .: "retriable"
+    return $ RosettaError
+      { _error_code = c
+      , _error_message = msg
+      , _error_retriable = b
+      }
 
 ------------------------------------------------------------------------------
 
@@ -524,6 +629,15 @@ instance ToJSON OperationStatus where
     object [ "status" .= s
            , "successful" .= b ]
 
+instance FromJSON OperationStatus where
+  parseJSON = withObject "OperationStatus" $ \o -> do
+    s <- o .: "status"
+    b <- o .: "successful"
+    return $ OperationStatus
+      { _operationStatus_status = s
+      , _operationStatus_successful = b
+      }
+
 ------------------------------------------------------------------------------
 
 -- A node's peer
@@ -540,6 +654,15 @@ instance ToJSON RosettaNodePeer where
     where
       restOfPairs = [ "peer_id" .= i ]
       metaPair m = [ "metadata" .= m ]
+
+instance FromJSON RosettaNodePeer where
+  parseJSON = withObject "RosettaNodePeer" $ \o -> do
+    i <- o .: "peer_id"
+    m <- o .:? "metadata"
+    return $ RosettaNodePeer
+      { _peer_peerId = i
+      , _peer_metadata = m
+      }
 
 ------------------------------------------------------------------------------
 
@@ -573,6 +696,19 @@ instance ToJSON RosettaNodeVersion where
       metaPair :: Object -> [Pair]
       metaPair meta = [ "metadata" .= meta ]
 
+instance FromJSON RosettaNodeVersion where
+  parseJSON = withObject "RosettaNodeVersion" $ \o -> do
+    r <- o .: "rosetta_version"
+    n <- o .: "node_version"
+    mi <- o .:? "middleware_version"
+    meta <- o .:? "metadata"
+    return $ RosettaNodeVersion
+      { _version_rosettaVersion = r
+      , _version_nodeVersion = n
+      , _version_middlewareVersion = mi
+      , _version_metadata = meta
+      }
+
 ------------------------------------------------------------------------------
 -- Requests and Responses --
 ------------------------------------------------------------------------------
@@ -590,6 +726,13 @@ data AccountBalanceReq = AccountBalanceReq
   -- ^ NOTE: when index and hash fields missing, it's assumed the client
   --         is making a request at the current block.
   } deriving (Eq, Show, Generic, NFData)
+
+instance ToJSON AccountBalanceReq where
+  toJSON (AccountBalanceReq nid acct someb) =
+    toJSONOmitMaybe
+    [ "network_identifier" .= nid
+    , "account_identifier" .= acct ]
+    [ maybePair "block_identifier" someb ]
 
 instance FromJSON AccountBalanceReq where
   parseJSON = withObject "AccountBalanceReq" $ \o -> do
@@ -623,6 +766,17 @@ instance ToJSON AccountBalanceResp where
       restOfPairs = [ "block_identifier" .= bi, "balances" .= bals ]
       metaPair m = [ "metadata" .= m ]
 
+instance FromJSON AccountBalanceResp where
+  parseJSON = withObject "AccountBalanceResp" $ \o -> do
+    bi <- o .: "block_identifier"
+    bals <- o .: "balances"
+    m <- o .:? "metadata"
+    return $ AccountBalanceResp
+      { _accountBalanceResp_blockId = bi
+      , _accountBalanceResp_balances = bals
+      , _accountBalanceResp_metadata = m
+      }
+
 ------------------------------------------------------------------------------
 
 -- Utilized to make a block request on the /block endpoint
@@ -630,6 +784,11 @@ data BlockReq = BlockReq
  { _blockReq_networkId :: NetworkId
  , _blockReq_blockId :: PartialBlockId
  } deriving (Eq, Show, Generic, NFData)
+
+instance ToJSON BlockReq where
+  toJSON (BlockReq nid bid) =
+    object [ "network_identifier" .= nid
+           , "block_identifier" .= bid ]
 
 instance FromJSON BlockReq where
   parseJSON = withObject "BlockReq" $ \o -> do
@@ -663,6 +822,14 @@ instance ToJSON BlockResp where
       restOfPairs = [ "block" .= b ]
       otherTxsPair ts = [ "other_transactions" .= ts ]
 
+instance FromJSON BlockResp where
+  parseJSON = withObject "BlockResp" $ \o -> do
+    b <- o .: "block"
+    ts <- o .:? "other_transactions"
+    return $ BlockResp
+      { _blockResp_block = b
+      , _blockResp_otherTransactions = ts
+      }
 
 ------------------------------------------------------------------------------
 
@@ -673,6 +840,12 @@ data BlockTransactionReq = BlockTransactionReq
   , _blockTransactionReq_blockId :: BlockId
   , _blockTransactionReq_transactionId :: TransactionId
   } deriving (Eq, Show, Generic, NFData)
+
+instance ToJSON BlockTransactionReq where
+  toJSON (BlockTransactionReq nid bid tid) =
+    object [ "network_identifier" .= nid
+           , "block_identifier" .= bid
+           , "transaction_identifier" .= tid ]
 
 instance FromJSON BlockTransactionReq where
   parseJSON = withObject "BlockTransactionReq" $ \o -> do
@@ -696,6 +869,10 @@ newtype BlockTransactionResp = BlockTransactionResp
 instance ToJSON BlockTransactionResp where
   toJSON (BlockTransactionResp tx) = object [ "transaction" .= tx ]
 
+instance FromJSON BlockTransactionResp where
+  parseJSON = withObject "BlockTransactionResp" $ \o -> do
+    tx <- o .: "transaction"
+    return $ BlockTransactionResp tx
 
 ------------------------------------------------------------------------------
 
@@ -712,6 +889,11 @@ data ConstructionMetadataReq = ConstructionMetadataReq
   --         can populate an optios object to limit the metadata returned to only
   --         the subset required.
   } deriving (Eq, Show, Generic, NFData)
+
+instance ToJSON ConstructionMetadataReq where
+  toJSON (ConstructionMetadataReq nid someopts) =
+    object [ "network_identifier" .= nid
+           , "options" .= someopts ]
 
 instance FromJSON ConstructionMetadataReq where
   parseJSON = withObject "ConstructionMetadataReq" $ \o -> do
@@ -731,10 +913,14 @@ newtype ConstructionMetadataResp = ConstructionMetadataResp
   deriving stock (Eq, Show, Generic)
   deriving newtype (NFData)
 
-
 instance ToJSON ConstructionMetadataResp where
   toJSON (ConstructionMetadataResp m) =
     object [ "metadata" .= m ]
+
+instance FromJSON ConstructionMetadataResp where
+  parseJSON = withObject "ConstructionMetadataResp" $ \o -> do
+    m <- o .: "metadata"
+    return $ ConstructionMetadataResp m
 
 ------------------------------------------------------------------------------
 
@@ -744,6 +930,11 @@ data ConstructionSubmitReq = ConstructionSubmitReq
   , _constructionSubmitReq_signedTransaction :: Text
   -- ^ The signed transaction
   } deriving (Eq, Show, Generic, NFData)
+
+instance ToJSON ConstructionSubmitReq where
+  toJSON (ConstructionSubmitReq nid ts) =
+    object [ "network_identifier" .= nid
+           , "signed_transaction" .= ts ]
 
 instance FromJSON ConstructionSubmitReq where
   parseJSON = withObject "ConstructionSubmitReq" $ \o -> do
@@ -771,6 +962,15 @@ instance ToJSON ConstructionSubmitResp where
       restOfPairs = [ "transaction_identifier" .= txId ]
       metaPair m = [ "metadata" .= m ]
 
+instance FromJSON ConstructionSubmitResp where
+  parseJSON = withObject "ConstructionSubmitResp" $ \o -> do
+    txId <- o .: "transaction_identifier"
+    m <- o .:? "metadata"
+    return $ ConstructionSubmitResp
+      { _constructionSubmitResp_transactionId = txId
+      , _constructionSubmitResp_metadata = m
+      }
+
 ------------------------------------------------------------------------------
 
 -- Utilized to retrieve all transaction identifiers in the mempool for a
@@ -780,6 +980,10 @@ newtype MempoolReq = MempoolReq
   }
   deriving stock (Eq, Show, Generic)
   deriving newtype (NFData)
+
+instance ToJSON MempoolReq where
+  toJSON (MempoolReq nid) =
+    object [ "network_identifier" .= nid ]
 
 instance FromJSON MempoolReq where
   parseJSON = withObject "MempoolReq" $ \o -> do
@@ -798,6 +1002,11 @@ instance ToJSON MempoolResp where
   toJSON (MempoolResp txs) =
     object [ "transaction_identifiers" .= txs ]
 
+instance FromJSON MempoolResp where
+  parseJSON = withObject "MempoolResp" $ \o -> do
+    txs <- o .: "transaction_identifiers"
+    return $ MempoolResp txs
+
 ------------------------------------------------------------------------------
 
 -- Utilized to retrieve a transaction from the mempool on
@@ -806,6 +1015,11 @@ data MempoolTransactionReq = MempoolTransactionReq
   { _mempoolTransactionReq_networkId :: NetworkId
   , _mempoolTransactionReq_transactionId :: TransactionId
   } deriving (Eq, Show, Generic, NFData)
+
+instance ToJSON MempoolTransactionReq where
+  toJSON (MempoolTransactionReq nid tid) =
+    object [ "network_identifier" .= nid
+           , "transaction_identifier" .= tid ]
 
 instance FromJSON MempoolTransactionReq where
   parseJSON = withObject "MempoolTransactionReq" $ \o -> do
@@ -834,6 +1048,15 @@ instance ToJSON MempoolTransactionResp where
       restOfPairs = [ "transaction" .= tx ]
       metaPair m = [ "metadata" .= m ]
 
+instance FromJSON MempoolTransactionResp where
+  parseJSON = withObject "MempoolTransactionResp" $ \o -> do
+    tx <- o .: "transaction"
+    m <- o .: "metadata"
+    return $ MempoolTransactionResp
+      { _mempoolTransactionResp_transaction = tx
+      , _mempoolTransactionResp_metadata = m
+      }
+
 ------------------------------------------------------------------------------
 
 -- Utilized in any request where the only argument is optional metadata
@@ -842,6 +1065,10 @@ newtype MetadataReq = MetadataReq
   }
   deriving stock (Eq, Show, Generic)
   deriving newtype (NFData)
+
+instance ToJSON MetadataReq where
+  toJSON (MetadataReq m) =
+    object [ "metadata" .= m ]
 
 instance FromJSON MetadataReq where
   parseJSON = withObject "MetadataReq" $ \o -> do
@@ -862,6 +1089,10 @@ instance ToJSON NetworkListResp where
   toJSON (NetworkListResp netIds) =
     object [ "network_identifiers" .= netIds ]
 
+instance FromJSON NetworkListResp where
+  parseJSON = withObject "NetworkListResp" $ \o -> do
+    netIds <- o .: "network_identifiers"
+    return $ NetworkListResp netIds
 
 ------------------------------------------------------------------------------
 
@@ -877,6 +1108,15 @@ instance ToJSON NetworkOptionsResp where
     object [ "version" .= v
            , "allow" .= allow ]
 
+instance FromJSON NetworkOptionsResp where
+  parseJSON = withObject "NetworkOptionsResp" $ \o -> do
+    v <- o .: "version"
+    allow <- o .: "allow"
+    return $ NetworkOptionsResp
+      { _networkOptionsResp_version = v
+      , _networkOptionsResp_allow = allow
+      }
+
 ------------------------------------------------------------------------------
 
 -- Utilized to retrieve some data specific exclusively to a network identifier.
@@ -884,6 +1124,12 @@ data NetworkReq = NetworkReq
   { _networkReq_networkId :: NetworkId
   , _networkReq_metadata :: Maybe Object
   } deriving (Eq, Show, Generic, NFData)
+
+instance ToJSON NetworkReq where
+  toJSON (NetworkReq nid someMeta) =
+    toJSONOmitMaybe
+    [ "network_identifier" .= nid ]
+    [ maybePair "metadata" someMeta ]
 
 instance FromJSON NetworkReq where
   parseJSON = withObject "NetworkReq" $ \o -> do
@@ -911,3 +1157,31 @@ instance ToJSON NetworkStatusResp where
            , "current_block_timestamp" .= currBlockTime
            , "genesis_block_identifier" .= genesis
            , "peers" .= peers ]
+
+instance FromJSON NetworkStatusResp where
+  parseJSON = withObject "NetworkStatusResp" $ \o -> do
+    currBlockId <- o .: "current_block_identifier"
+    currBlockTime <- o .: "current_block_timestamp"
+    genesis <- o .: "genesis_block_identifier"
+    peers <- o .: "peers"
+    return $ NetworkStatusResp
+      { _networkStatusResp_currentBlockId = currBlockId
+      , _networkStatusResp_currentBlockTimestamp = currBlockTime
+      , _networkStatusResp_genesisBlockId = genesis
+      , _networkStatusResp_peers = peers
+      }
+
+------------------------------------------------------------------------------
+-- Helper function
+------------------------------------------------------------------------------
+
+maybePair :: (ToJSON a) => Text -> Maybe a -> (Text, Maybe Value)
+maybePair label Nothing = (label, Nothing)
+maybePair label (Just v) = (label, Just (toJSON v))
+
+toJSONOmitMaybe :: [Pair] -> [(Text, Maybe Value)] -> Value
+toJSONOmitMaybe defPairs li = object allPairs
+  where
+    allPairs = foldl' f defPairs li
+    f acc (_, Nothing) = acc
+    f acc (t, Just p) = acc ++ [t .= p]
