@@ -18,14 +18,23 @@ module Rosetta
     -- ** Core
   , Amount(..)
   , Block(..)
+  , Coin(..)
+  , CoinAction(..)
+  , CoinChange(..)
   , Currency(..)
+  , CurveType(..)
   , Operation(..)
+  , RosettaPublicKey(..)
+  , RosettaSignature(..)
+  , RosettaSignatureType(..)
+  , RosettaSigningPayload(..)
   , Transaction(..)
     -- ** Identifiers
   , AccountId(..)
   , SubAccountId(..)
   , BlockId(..)
   , PartialBlockId(..)
+  , CoinId(..)
   , NetworkId(..)
   , SubNetworkId(..)
   , OperationId(..)
@@ -50,7 +59,6 @@ module Rosetta
   , ConstructionSubmitReq(..)
   , ConstructionSubmitResp(..)
     -- ** Mempool
-  , MempoolReq(..)
   , MempoolResp(..)
   , MempoolTransactionReq(..)
   , MempoolTransactionResp(..)
@@ -78,7 +86,7 @@ import GHC.Generics (Generic)
 ------------------------------------------------------------------------------
 
 rosettaSpecVersion :: Text
-rosettaSpecVersion = "1.3.1"
+rosettaSpecVersion = "1.4.2"
 
 ------------------------------------------------------------------------------
 -- Identifiers --
@@ -205,6 +213,24 @@ instance FromJSON PartialBlockId where
 
 ------------------------------------------------------------------------------
 
+-- Uniquely identifies a Coin.
+newtype CoinId = CoinId
+  { _coinId_identifier :: Text
+  -- ^ Should be populated with a globally unique identifier of a Coin.
+  --   In Bitcoin, this identifier would be "transaction_hash:index".
+  }
+  deriving (Generic)
+  deriving newtype (Eq, Show, NFData)
+instance ToJSON CoinId where
+  toJSON (CoinId i) =
+    object ["identifier" .= i ]
+instance FromJSON CoinId where
+  parseJSON = withObject "CoinId" $ \o -> do
+    i <- o .: "identifier"
+    return $ CoinId i
+
+------------------------------------------------------------------------------
+
 -- Specifies which network a particular object is associated with
 data NetworkId = NetworkId
   { _networkId_blockchain :: Text
@@ -238,7 +264,6 @@ instance FromJSON NetworkId where
 
 ------------------------------------------------------------------------------
 
--- TODO: optional?
 data SubNetworkId = SubNetworkId
   { _subNetworkId_network :: Text
   , _subNetworkId_metadata :: Maybe Object
@@ -330,23 +355,29 @@ data Allow = Allow
   -- ^ All Operation.Type this implementation supports
   , _allow_errors :: [RosettaError]
   -- ^ All Errors that this implementation could return
+  , _allow_historicalBalanceLookup :: Bool
+  -- ^ Set to true if the implementation supports querying the
+  --   balance of an account at any height in the past.
   } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON Allow where
-  toJSON (Allow st typ err) =
+  toJSON (Allow st typ err hist) =
     object [ "operation_statuses" .= st
            , "operation_types" .= typ
-           , "errors" .= err ]
+           , "errors" .= err
+           , "historical_balance_lookup" .= hist ]
 
 instance FromJSON Allow where
   parseJSON = withObject "Allow" $ \o -> do
     st <- o .: "operation_statuses"
     typ <- o .: "operation_types"
     err <- o .: "errors"
+    hist <- o .: "historical_balance_lookup"
     return $ Allow
       { _allow_operationStatuses = st
       , _allow_operationTypes = typ
       , _allow_errors = err
+      , _allow_historicalBalanceLookup = hist
       }
 
 ------------------------------------------------------------------------------
@@ -356,6 +387,9 @@ data Amount = Amount
   { _amount_value :: Text
   -- ^ Value of the transaction in atomic units represented as an
   --   arbitrary-sized signed integer.
+  -- ^ NOTE: When used in the context of an Operation, set this to
+  --         be how much the balance increased or decreased in this
+  --         operation.
   -- ^ Example: 1 BTC would be represented by a value of 100,000,000
   , _amount_currency :: Currency
   -- ^ Composed of a canonical Symbol and Decimals
@@ -386,8 +420,10 @@ instance FromJSON Amount where
 
 ------------------------------------------------------------------------------
 
--- Blocks contain an array of Transactions that occurred at a
--- particular BlockId
+-- Blocks contain an array of Transactions that occurred at a particular BlockId
+-- NOTE: Blocks MUST be inalterable: once a client has requested and received
+--       a block identified by a specific BlockIdentifier hash, all future calls
+--       for that same BlockIdentifier must return the same block contents.
 data Block = Block
   { _block_blockId :: BlockId
   -- ^ A unique block in a particular network
@@ -429,9 +465,74 @@ instance FromJSON Block where
 
 ------------------------------------------------------------------------------
 
+-- The unique id of the Coin and the amount it represents
+data Coin = Coin
+  { _coin_coinIdentifier :: CoinId
+  , _coin_amount :: Amount
+  }
+  deriving (Eq, Show, Generic, NFData)
+instance ToJSON Coin where
+  toJSON (Coin i amt) =
+    object ["coin_identifier" .= i
+           , "amount" .= amt ]
+instance FromJSON Coin where
+  parseJSON = withObject "Coin" $ \o -> do
+    i <- o .: "coin_identifier"
+    amt <- o .: "amount"
+    return $ Coin
+      { _coin_coinIdentifier = i
+      , _coin_amount = amt
+      }
+
+------------------------------------------------------------------------------
+
+-- Different state changes that a Coin can undergo.
+-- NOTE: Assumes that single Coin cannot be created or
+--       spent more than once.
+data CoinAction = CoinCreated | CoinSpent
+  deriving (Eq, Show, Generic, NFData)
+instance ToJSON CoinAction where
+  toJSON CoinCreated = "coin_created"
+  toJSON CoinSpent = "coin_spent"
+instance FromJSON CoinAction where
+  parseJSON = withText "CoinAction" $ \t -> do
+    case t of
+      "coin_created" -> return CoinCreated
+      "coin_spent" -> return CoinSpent
+      _ -> error $ "Invalid CoinAction: " ++ show t
+
+------------------------------------------------------------------------------
+
+-- Represents a change in state of some coin.
+-- NOTE: This type is part of the Operation model and must be populated for
+--       UTXO-based blockchains. Do NOT populate this model is a transfer is
+--       account-based.
+-- NOTE: This abstraction of UTXOs allows for supporting both account-based
+--       transfers and UTXO-based transfers on the same blockchain.
+data CoinChange = CoinChange
+  { _coinChange_coinIdentifier :: CoinId
+  , _coinChange_coinAction :: CoinAction
+  } deriving (Eq, Show, Generic, NFData)
+instance ToJSON CoinChange where
+  toJSON (CoinChange i act) =
+    object [ "coin_identifier" .= i
+           , "coin_action" .= act ]
+instance FromJSON CoinChange where
+  parseJSON = withObject "CoinChange" $ \o -> do
+    i <- o .: "coin_identifier"
+    act <- o .: "coin_action"
+    return $ CoinChange
+      { _coinChange_coinIdentifier = i
+      , _coinChange_coinAction = act
+      }
+
+------------------------------------------------------------------------------
+
 -- Composed of canonical Symbol and Decimals.
 -- Decimals value is used to convert an Amount.Value from atomic units (Satoshis)
 -- to standard units (Bitcoins)
+-- NOTE: It is not possible to represent the value of some currency in atomic
+--       units that is not base 10.
 data Currency = Currency
   { _currency_symbol :: Text
   -- ^ Canonical symbol associated with a currency
@@ -466,6 +567,28 @@ instance FromJSON Currency where
 
 ------------------------------------------------------------------------------
 
+-- Type of cryptographic curve associated with a PublicKey
+data CurveType =
+    CurveSecp256k1
+  -- ^ SEC Compressed curve with size of 33 bytes.
+  -- ^ Description: https://secg.org/sec1-v2.pdf#subsubsection.2.3.3
+  | CurveEdwards25519
+  -- ^ y (255-bits) + x-sign-bit (1-bit) curve with size of 32 bytes.
+  -- ^ Description: https://ed25519.cr.yp.to/ed25519-20110926.pdf
+  deriving (Show, Eq, Generic, NFData)
+
+instance ToJSON CurveType where
+  toJSON CurveSecp256k1 = "secp256k1"
+  toJSON CurveEdwards25519 = "edwards25519"
+instance FromJSON CurveType where
+  parseJSON = withText "CurveType" $ \t -> do
+    case t of
+      "secp256k1" -> return CurveSecp256k1
+      "edwards25519" -> return CurveEdwards25519
+      _ -> error $ "Invalid CurveType: " ++ show t
+
+------------------------------------------------------------------------------
+
 -- Operations contain all balance-changing information within a transaction.
 -- They are always one-sided (only affect 1 AccountId) and can succeed
 -- or fail idependently from a Transaction.
@@ -493,36 +616,21 @@ data Operation = Operation
   -- ^ Example: "Reverted"
   , _operation_account :: Maybe AccountId
   , _operation_amount :: Maybe Amount
+  , _operation_coinChange :: Maybe CoinChange
+  -- ^ Only supported for UTXO-based transfers.
   , _operation_metadata :: Maybe Object
   } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON Operation where
-  toJSON op = object allPairs
-    where
-      relatedOperationsPair :: Maybe [OperationId] -> [Pair]
-      relatedOperationsPair Nothing = []
-      relatedOperationsPair (Just ops) = [ "related_operations" .= ops ]
-
-      accountPair :: Maybe AccountId -> [Pair]
-      accountPair Nothing = []
-      accountPair (Just acct) = [ "account" .= acct ]
-
-      amountPair :: Maybe Amount -> [Pair]
-      amountPair Nothing = []
-      amountPair (Just amt) = [ "amount" .= amt ]
-
-      metaPair :: Maybe Object -> [Pair]
-      metaPair Nothing = []
-      metaPair (Just m) = [ "metadata" .= m ]
-
-      allPairs =
-        [ "operation_identifier" .= (_operation_operationId op)
-        , "type" .= (_operation_type op)
-        , "status" .= (_operation_status op) ]
-        ++ (relatedOperationsPair (_operation_relatedOperations op))
-        ++ (accountPair (_operation_account op))
-        ++ (amountPair (_operation_amount op))
-        ++ (metaPair (_operation_metadata op))
+  toJSON op = toJSONOmitMaybe
+    [ "operation_identifier" .= (_operation_operationId op)
+    , "type" .= (_operation_type op)
+    , "status" .= (_operation_status op) ]
+    [ maybePair "related_operations" (_operation_relatedOperations op)
+    , maybePair "account" (_operation_account op)
+    , maybePair "amount" (_operation_amount op)
+    , maybePair "coin_change" (_operation_coinChange op)
+    , maybePair "metadata" (_operation_metadata op) ]
 
 instance FromJSON Operation where
   parseJSON = withObject "Operation" $ \o -> do
@@ -532,6 +640,7 @@ instance FromJSON Operation where
     stat <- o .: "status"
     acct <- o .:? "account"
     amt <- o .:? "amount"
+    coin <- o .:? "coin_change"
     m <- o .:? "metadata"
     return $ Operation
       { _operation_operationId = oid
@@ -540,7 +649,126 @@ instance FromJSON Operation where
       , _operation_status = stat
       , _operation_account = acct
       , _operation_amount = amt
+      , _operation_coinChange = coin
       , _operation_metadata = m
+      }
+
+------------------------------------------------------------------------------
+
+-- Contains a public key byte array for a particular curve scheme encoded
+-- in hex.
+-- NOTE: There is no PrivateKey struct as this is NEVER the concern of an
+--       implementation.
+data RosettaPublicKey = RosettaPublicKey
+  { _rosettaPublicKey_hexBytes :: Text
+  -- ^ Hex-encoded public key bytes in the format specified by the
+  --   CurveType.
+  , _rosettaPublicKey_curveType :: CurveType
+  -- ^ Type of cryptographic curve
+  } deriving (Eq, Show, Generic, NFData)
+
+instance ToJSON RosettaPublicKey where
+  toJSON (RosettaPublicKey hex typ) =
+    object [ "hex_bytes" .= hex
+           , "curve_type" .= typ ]
+instance FromJSON RosettaPublicKey where
+  parseJSON = withObject "RosettaPublicKey" $ \o -> do
+    hex <- o .: "hex_bytes"
+    typ <- o .: "curve_type"
+    return $ RosettaPublicKey
+      { _rosettaPublicKey_hexBytes = hex
+      , _rosettaPublicKey_curveType = typ
+      }
+
+------------------------------------------------------------------------------
+
+-- Contains the payload that was signed, the public keys of the keypairs used
+-- to produce the signature, the signature (encded in hex), and the signature
+-- type used to sign the payload.
+-- NOTE: The public key is often not known during construction of the signing
+--       payloads but may be needed to combine signatures properly.
+data RosettaSignature = RosettaSignature
+  { _rosettaSignature_signingPayload :: RosettaSigningPayload
+  , _rosettaSignature_publicKey :: RosettaPublicKey
+  , _rosettaSignature_signatureType :: RosettaSignatureType
+  , _rosettaSignature_hexBytes :: Text
+  -- ^ hex-encoded signature of the signing payload.
+  } deriving (Eq, Show, Generic, NFData)
+
+instance ToJSON RosettaSignature where
+  toJSON sig = object
+    [ "signing_payload" .= _rosettaSignature_signingPayload sig
+    , "public_key" .= _rosettaSignature_publicKey sig
+    , "signature_type" .= _rosettaSignature_signatureType sig
+    , "hex_bytes" .= _rosettaSignature_hexBytes sig
+    ]
+
+instance FromJSON RosettaSignature where
+  parseJSON = withObject "RosettaSignature" $ \o -> do
+    payload <- o .: "signing_payload"
+    pk <- o .: "public_key"
+    sigTyp <- o .: "signature_type"
+    hex <- o .: "hex_bytes"
+    return $ RosettaSignature
+      { _rosettaSignature_signingPayload = payload
+      , _rosettaSignature_publicKey = pk
+      , _rosettaSignature_signatureType = sigTyp
+      , _rosettaSignature_hexBytes = hex
+      }
+
+------------------------------------------------------------------------------
+
+-- Type of a cryptographic signature scheme
+data RosettaSignatureType =
+    RosettaEcdsa
+  -- ^ r (32-bytes) + s (32-bytes) signature type with size of 64 bytes.
+  | RosettaEcdsaRecovery
+  -- ^ r (32-bytes) + s (32-bytes) + v (1-byte) signature type with size of 65 bytes.
+  | RosettaEd25519
+  -- ^ R (32-bytes) + s (32-bytes) signature type with size of 64 bytes.
+  deriving (Eq, Show, Generic, NFData)
+
+instance ToJSON RosettaSignatureType where
+  toJSON RosettaEcdsa = "ecdsa"
+  toJSON RosettaEcdsaRecovery = "ecdsa_recovery"
+  toJSON RosettaEd25519 = "ed25519"
+instance FromJSON RosettaSignatureType where
+  parseJSON = withText "RosettaSignatureType" $ \t -> do
+    case t of
+      "ecdsa" -> return RosettaEcdsa
+      "ecdsa_recovery" -> return RosettaEcdsaRecovery
+      "ed25519" -> return RosettaEd25519
+      _ -> error $ "Invalid RosettaSignatureType: " ++ show t
+
+------------------------------------------------------------------------------
+
+-- Signed by the client with the keypair associated with an address using the
+-- specified SignatureType.
+data RosettaSigningPayload = RosettaSigningPayload
+  { _rosettaSigningPayload_address :: Text
+  -- ^ The network-specific address of the account that should sign the payload.
+  , _rosettaSigningPayload_hexBytes :: Text
+  -- ^ Hex-encoded payload to be signed.
+  , _rosettaSigningPayload_signatureType :: Maybe RosettaSignatureType
+  -- ^ Optionally populated is there is a restriction on the signature scheme that
+  --   can be used to sign the payload.
+  } deriving (Eq, Show, Generic, NFData)
+
+instance ToJSON RosettaSigningPayload where
+  toJSON p = toJSONOmitMaybe
+    [ "address" .= _rosettaSigningPayload_address p
+    , "hex_bytes" .= _rosettaSigningPayload_hexBytes p ]
+    [ maybePair "signature_type" (_rosettaSigningPayload_signatureType p) ]
+
+instance FromJSON RosettaSigningPayload where
+  parseJSON = withObject "RosettaSigningPayload" $ \o -> do
+    addr <- o .: "address"
+    hex <- o .: "hex_bytes"
+    typ <- o .: "signature_type"
+    return $ RosettaSigningPayload
+      { _rosettaSigningPayload_address = addr
+      , _rosettaSigningPayload_hexBytes = hex
+      , _rosettaSigningPayload_signatureType = typ
       }
 
 ------------------------------------------------------------------------------
@@ -751,6 +979,11 @@ data AccountBalanceResp = AccountBalanceResp
   { _accountBalanceResp_blockId :: BlockId
   , _accountBalanceResp_balances :: [Amount]
   -- ^ A single account may have a balance in multiple currencies
+  , _accountBalanceResp_coins :: Maybe [Coin]
+  -- ^ UTXO-based blockchains should return all unspent Coins owned by an
+  --   account_identifier. It's highly recommended to populate this field so
+  --   users of Rosetta API implementation don't need to maintain their own
+  --   indexer to track their UTXOs.
   , _accountBalanceResp_metadata :: Maybe Object
   -- ^ Account-based blockchains that utilize a nonce or sequence number should include
   --   that number in the metadata. This number could be unique to the identifier or global
@@ -758,22 +991,23 @@ data AccountBalanceResp = AccountBalanceResp
   } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON AccountBalanceResp where
-  toJSON (AccountBalanceResp bi bals someMeta) =
-    case someMeta of
-      Nothing -> object restOfPairs
-      Just m -> object (restOfPairs ++ metaPair m)
-    where
-      restOfPairs = [ "block_identifier" .= bi, "balances" .= bals ]
-      metaPair m = [ "metadata" .= m ]
+  toJSON (AccountBalanceResp bi bals coins someMeta) =
+    toJSONOmitMaybe
+    [ "block_identifier" .= bi
+    , "balances" .= bals ]
+    [ maybePair "metadata" someMeta
+    , maybePair "coins" coins ]
 
 instance FromJSON AccountBalanceResp where
   parseJSON = withObject "AccountBalanceResp" $ \o -> do
     bi <- o .: "block_identifier"
     bals <- o .: "balances"
+    coins <- o .:? "coins"
     m <- o .:? "metadata"
     return $ AccountBalanceResp
       { _accountBalanceResp_blockId = bi
       , _accountBalanceResp_balances = bals
+      , _accountBalanceResp_coins = coins
       , _accountBalanceResp_metadata = m
       }
 
@@ -802,9 +1036,16 @@ instance FromJSON BlockReq where
 
 -- Includes a fully-populated block or a partially-populated block with a list
 -- of other transactions to fetch.
+-- NOTE: As a result of the consensus algorithm of some blockchains, blocks can be
+--       omitted (i.e. certain block indexes can be skipped). If a query for one of
+--       these omitted indexes is made, the response should not include a Block object.
+--       It is VERY important to note that blocks MUST still form a canonical, connected
+--       chain of blocks where each block has a unique index. In other words, the
+--       PartialBlockIdentifier of a block after an omitted block should reference
+--       the last non-omitted block.
 data BlockResp = BlockResp
-  { _blockResp_block :: Block
-  -- ^ Array of Transactions that occurred at a particular block
+  { _blockResp_block :: Maybe Block
+  -- ^ Array of Transactions that occurred at a particular block.
   , _blockResp_otherTransactions :: Maybe [TransactionId]
   -- ^ NOTE: Some blockchains require additional transactions to be fetched
   --         that weren't returned in the block response (i.e. the block only
@@ -814,17 +1055,14 @@ data BlockResp = BlockResp
   } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON BlockResp where
-  toJSON (BlockResp b someOtherTxs) =
-    case someOtherTxs of
-      Nothing -> object restOfPairs
-      Just ts -> object (restOfPairs ++ otherTxsPair ts)
-    where
-      restOfPairs = [ "block" .= b ]
-      otherTxsPair ts = [ "other_transactions" .= ts ]
+  toJSON (BlockResp someb someOtherTxs) =
+    toJSONOmitMaybe []
+    [ maybePair  "block" someb
+    , maybePair "other_transactions" someOtherTxs ]
 
 instance FromJSON BlockResp where
   parseJSON = withObject "BlockResp" $ \o -> do
-    b <- o .: "block"
+    b <- o .:? "block"
     ts <- o .:? "other_transactions"
     return $ BlockResp
       { _blockResp_block = b
@@ -973,23 +1211,7 @@ instance FromJSON ConstructionSubmitResp where
 
 ------------------------------------------------------------------------------
 
--- Utilized to retrieve all transaction identifiers in the mempool for a
--- particular network on the /mempool endpoint.
-newtype MempoolReq = MempoolReq
-  { _mempoolReq_networkId :: NetworkId
-  }
-  deriving stock (Eq, Show, Generic)
-  deriving newtype (NFData)
-
-instance ToJSON MempoolReq where
-  toJSON (MempoolReq nid) =
-    object [ "network_identifier" .= nid ]
-
-instance FromJSON MempoolReq where
-  parseJSON = withObject "MempoolReq" $ \o -> do
-    netId <- o .: "network_identifier"
-    return $ MempoolReq netId
-
+-- NOTE: The request schema for the mempool endpoint is NetworkReq
 
 -- Contains all transaction identifiers in the mempool for a particular network.
 newtype MempoolResp = MempoolResp
@@ -1067,8 +1289,9 @@ newtype MetadataReq = MetadataReq
   deriving newtype (NFData)
 
 instance ToJSON MetadataReq where
-  toJSON (MetadataReq m) =
-    object [ "metadata" .= m ]
+  toJSON (MetadataReq someMeta) =
+    toJSONOmitMaybe []
+    [ maybePair "metadata" someMeta ]
 
 instance FromJSON MetadataReq where
   parseJSON = withObject "MetadataReq" $ \o -> do
@@ -1142,32 +1365,50 @@ instance FromJSON NetworkReq where
 
 ------------------------------------------------------------------------------
 
--- Contains basic information about the node's view of a blockchain network
+-- Contains basic information about the node's view of a blockchain network.
+-- NOTE: Assumes that any BlockIdentifier.Index less than or equal to
+--       CurrentBlockIdentifier.Index can be queried.
 data NetworkStatusResp = NetworkStatusResp
   { _networkStatusResp_currentBlockId :: BlockId
   , _networkStatusResp_currentBlockTimestamp :: Word64
   -- ^ Timestamp of the block in milliseconds since the Unix Epoch.
   , _networkStatusResp_genesisBlockId :: BlockId
+  , _networkStatusResp_oldestBlockIdentifier :: Maybe BlockId
+  -- ^ The oldest block available to query. Used when an implementation
+  --   prunes historical state. If omitted, it is assumed that the
+  --   genesis_block_identifier is the oldest queryable block.
+  , _networkStatusResp_syncStatus :: Maybe SyncStatus
+  -- ^ Helps clients monitor healthiness. Populated when an implementation
+  --   performs some pre-sync before it is possible to query blocks.
+  --   If omitted, it may appear that the implementation is stuck syncing and
+  --   needs to be terminated.
   , _networkStatusResp_peers :: [RosettaNodePeer]
   } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON NetworkStatusResp where
-  toJSON (NetworkStatusResp currBlockId currBlockTime genesis peers) =
-    object [ "current_block_identifier" .= currBlockId
-           , "current_block_timestamp" .= currBlockTime
-           , "genesis_block_identifier" .= genesis
-           , "peers" .= peers ]
+  toJSON (NetworkStatusResp blockId time genesis someOldest someSync p) =
+    toJSONOmitMaybe
+    [ "current_block_identifier" .= blockId
+    , "current_block_timestamp" .= time
+    , "genesis_block_identifier" .= genesis
+    , "peers" .= p ]
+    [ maybePair "oldest_block_identifier" someOldest
+    , maybePair "sync_status" someSync ]
 
 instance FromJSON NetworkStatusResp where
   parseJSON = withObject "NetworkStatusResp" $ \o -> do
     currBlockId <- o .: "current_block_identifier"
     currBlockTime <- o .: "current_block_timestamp"
     genesis <- o .: "genesis_block_identifier"
+    oldest <- o .:? "oldest_block_identifier"
+    sync <- o .:? "sync_status"
     peers <- o .: "peers"
     return $ NetworkStatusResp
       { _networkStatusResp_currentBlockId = currBlockId
       , _networkStatusResp_currentBlockTimestamp = currBlockTime
       , _networkStatusResp_genesisBlockId = genesis
+      , _networkStatusResp_oldestBlockIdentifier = oldest
+      , _networkStatusResp_syncStatus = sync
       , _networkStatusResp_peers = peers
       }
 
@@ -1185,3 +1426,21 @@ toJSONOmitMaybe defPairs li = object allPairs
     allPairs = foldl' f defPairs li
     f acc (_, Nothing) = acc
     f acc (t, Just p) = acc ++ [t .= p]
+
+------------------------------------------------------------------------------
+-- TODO
+------------------------------------------------------------------------------
+
+data SyncStatus = SyncStatus
+  deriving (Eq, Show, Generic, NFData)
+
+instance ToJSON SyncStatus where
+  toJSON = undefined
+instance FromJSON SyncStatus where
+  parseJSON = undefined
+
+-- NetworkStatusResp, what's meant by _networkStatusResp_syncStatus :: Maybe SyncStatus
+  -- ^ Helps clients monitor healthiness. Populated when an implementation
+  --   performs some pre-sync before it is possible to query blocks.
+  --   If omitted, it may appear that the implementation is stuck syncing and
+  --   needs to be terminated.
