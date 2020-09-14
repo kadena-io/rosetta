@@ -596,19 +596,30 @@ data CurveType =
     CurveSecp256k1
   -- ^ SEC Compressed curve with size of 33 bytes.
   -- ^ Description: https://secg.org/sec1-v2.pdf#subsubsection.2.3.3
+  | CurveSecp256r1
+  -- ^ SEC compressed curve with size of 33 bytes.
+  -- ^ Description: https://secg.org/sec1-v2.pdf#subsubsection.2.3.3
   | CurveEdwards25519
   -- ^ y (255-bits) + x-sign-bit (1-bit) curve with size of 32 bytes.
   -- ^ Description: https://ed25519.cr.yp.to/ed25519-20110926.pdf
+  | CurveTweedle
+  -- ^ Curve with size of 64 bytes and format of:
+  --   1st pk : Fq.t (32 bytes) + 2nd pk : Fq.t (32 bytes)
+  -- Description: https://github.com/CodaProtocol/coda/blob/develop/rfcs/0038-rosetta-construction-api.md#marshal-keys
   deriving (Show, Eq, Generic, NFData)
 
 instance ToJSON CurveType where
   toJSON CurveSecp256k1 = "secp256k1"
+  toJSON CurveSecp256r1 = "secp256r1"
   toJSON CurveEdwards25519 = "edwards25519"
+  toJSON CurveTweedle = "tweedle"
 instance FromJSON CurveType where
   parseJSON = withText "CurveType" $ \t -> do
     case t of
       "secp256k1" -> return CurveSecp256k1
+      "secp256r1" -> return CurveSecp256r1
       "edwards25519" -> return CurveEdwards25519
+      "tweedle" -> return CurveTweedle
       _ -> error $ "Invalid CurveType: " ++ show t
 
 ------------------------------------------------------------------------------
@@ -750,18 +761,35 @@ data RosettaSignatureType =
   -- ^ r (32-bytes) + s (32-bytes) + v (1-byte) signature type with size of 65 bytes.
   | RosettaEd25519
   -- ^ R (32-bytes) + s (32-bytes) signature type with size of 64 bytes.
+  | RosettaSchnorr1
+  -- ^ r (32-bytes) + s (32-bytes) signature type with size of 64 bytes.
+  -- NOTE: schnorr_1 is a EC-Schnorr signature implemented by Zilliqa where
+  --       both r and s are scalars encoded as 32-bytes values, most significant byte first.
+  --       Refer to Zilliqa's Schnorr Library and Zilliqa Technical Whitepaper - Appendix A:
+  --       Schnorr Digital Signature for details.)
+  | RosettaSchnorrPoseidon
+  -- ^ r (32-bytes) + s (32-bytes) where s = Hash(1st pk + 2nd pk + r) signature
+  --  type with size of 64 bytes.
+  -- NOTE: schnorr_poseidon is an EC-schnorr signature with Poseidon hash function
+  --       implemented by O(1) Labs where both r and s are scalars encoded as 32-bytes
+  --       little-endian values. Refer to Coda's signer reference implementation:
+  --       https://github.com/CodaProtocol/signer-reference/blob/master/schnorr.ml#L92
   deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON RosettaSignatureType where
   toJSON RosettaEcdsa = "ecdsa"
   toJSON RosettaEcdsaRecovery = "ecdsa_recovery"
   toJSON RosettaEd25519 = "ed25519"
+  toJSON RosettaSchnorr1 = "schnorr_1"
+  toJSON RosettaSchnorrPoseidon = "schnorr_poseidon"
 instance FromJSON RosettaSignatureType where
   parseJSON = withText "RosettaSignatureType" $ \t -> do
     case t of
       "ecdsa" -> return RosettaEcdsa
       "ecdsa_recovery" -> return RosettaEcdsaRecovery
       "ed25519" -> return RosettaEd25519
+      "schnorr_1" -> return RosettaSchnorr1
+      "schnorr_poseidon" -> return RosettaSchnorrPoseidon
       _ -> error $ "Invalid RosettaSignatureType: " ++ show t
 
 ------------------------------------------------------------------------------
@@ -1344,20 +1372,27 @@ data ConstructionMetadataReq = ConstructionMetadataReq
   -- ^ Specifies which metadata to return
   -- ^ NOTE: Some blockchains require different metadata for different types of
   --         transaction construction (i.e. delegation vs transfer).
+  , _constructionMetadataReq_publicKeys :: Maybe [RosettaPublicKey]
+  -- ^ Optionally, the request can also include an array of PublicKeys
+  -- associated with the AccountIdentifiers returned in ConstructionPreprocessResponse.
   } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON ConstructionMetadataReq where
-  toJSON (ConstructionMetadataReq nid someopts) =
-    object [ "network_identifier" .= nid
-           , "options" .= someopts ]
+  toJSON (ConstructionMetadataReq nid someopts somePubKeys) =
+    toJSONOmitMaybe
+      [ "network_identifier" .= nid
+      , "options" .= someopts ]
+      [ maybePair "public_keys" somePubKeys ]
 
 instance FromJSON ConstructionMetadataReq where
   parseJSON = withObject "ConstructionMetadataReq" $ \o -> do
     netId <- o .: "network_identifier"
     opts <- o .: "options"
+    somePubKeys <- o .:? "public_keys"
     return $ ConstructionMetadataReq
       { _constructionMetadataReq_networkId = netId
       , _constructionMetadataReq_options = opts
+      , _constructionMetadataReq_publicKeys = somePubKeys
       }
 
 -- Returns network-specific metadata used for transaction construction.
@@ -1427,7 +1462,7 @@ data ConstructionParseResp = ConstructionParseResp
   { _constructionParseResp_operations :: [Operation]
   , _constructionParseResp_signers :: Maybe [Text]
   -- ^ DEPRECATED by account_identifier_signers in v1.4.4.
-  --   All signers of a particular transaction. If the transaction is
+  --   All signers (addresses) of a particular transaction. If the transaction is
   --   unsigned, it should be empty.
   , _constructionParseResp_accountIdentifierSigners :: Maybe [AccountId]
   , _constructionParseResp_metadata :: Maybe Object
@@ -1470,22 +1505,28 @@ data ConstructionPayloadsReq = ConstructionPayloadsReq
   -- ^ NOTE: Subset of all operations of a transaction. 
   , _constructionPayloadsReq_metadata :: Maybe Object
   -- ^ Arbitrary metadata returned by the call to /construction/metadata.
+  , _constructionPayloadsReq_publicKeys :: Maybe [RosettaPublicKey]
+  -- ^ Optionally, the request can also include an array of PublicKeys
+  -- associated with the AccountIdentifiers returned in ConstructionPreprocessResponse.
   } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON ConstructionPayloadsReq where
   toJSON req = toJSONOmitMaybe
     [ "network_identifier" .= _constructionPayloadsReq_networkIdentifier req
     , "operations" .= _constructionPayloadsReq_operations req ]
-    [ maybePair "metadata" (_constructionPayloadsReq_metadata req) ]
+    [ maybePair "metadata" (_constructionPayloadsReq_metadata req)
+    , maybePair "public_keys" (_constructionPayloadsReq_publicKeys req)]
 instance FromJSON ConstructionPayloadsReq where
   parseJSON = withObject "ConstructionPayloadsReq" $ \o -> do
     netId <- o .: "network_identifier"
     ops <- o .: "operations"
     someMeta <- o .:? "metadata"
+    somePubKeys <- o .:? "public_keys"
     return $ ConstructionPayloadsReq
       { _constructionPayloadsReq_networkIdentifier = netId
       , _constructionPayloadsReq_operations = ops
       , _constructionPayloadsReq_metadata = someMeta
+      , _constructionPayloadsReq_publicKeys = somePubKeys
       }
 
 -- Returns an unsigned transaction blob and a collection of paylaods that
@@ -1572,22 +1613,28 @@ instance FromJSON ConstructionPreprocessReq where
 -- Returns the request that will be sent directly and UNMODIFIED
 -- to /construction/metadata (if populated) in an offline execution
 -- execution environment.
-newtype ConstructionPreprocessResp = ConstructionPreprocessResp
+data ConstructionPreprocessResp = ConstructionPreprocessResp
   { _constructionPreprocessResp_options :: Maybe Object
   -- ^ Sent directly to /construction/metadata by the caller.
   -- ^ NOTE: Set to null if it is not necessary to make a request to
   --         /construction/metadata.
+  , _constructionPreprocessResp_requiredPublicKeys :: Maybe [AccountId]
+  -- ^ The PublicKeys of particular AccountIdentifiers needed to construct a valid transaction.
+  -- To fetch these PublicKeys, populate required_public_keys with the AccountIdentifiers
+  -- associated with the desired PublicKeys. If it is not necessary to retrieve any PublicKeys
+  -- for construction, required_public_keys should be omitted.
   }
-  deriving stock (Eq, Show, Generic)
-  deriving newtype (NFData)
+  deriving (Eq, Show, Generic, NFData)
 instance ToJSON ConstructionPreprocessResp where
-  toJSON (ConstructionPreprocessResp opts) =
+  toJSON (ConstructionPreprocessResp opts someAccts) =
     toJSONOmitMaybe []
-      [ maybePair "options" opts]
+      [ maybePair "options" opts
+      , maybePair "required_public_keys" someAccts]
 instance FromJSON ConstructionPreprocessResp where
   parseJSON = withObject "ConstructionPreprocessResp" $ \o -> do
     opts <- o .:? "options"
-    return $ ConstructionPreprocessResp opts
+    someAccts <- o .:? "required_public_keys"
+    return $ ConstructionPreprocessResp opts someAccts
 
 ------------------------------------------------------------------------------
 
