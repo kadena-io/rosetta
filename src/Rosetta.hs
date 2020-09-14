@@ -97,7 +97,7 @@ import GHC.Generics (Generic)
 ------------------------------------------------------------------------------
 
 rosettaSpecVersion :: Text
-rosettaSpecVersion = "1.4.2"
+rosettaSpecVersion = "1.4.4"
 
 ------------------------------------------------------------------------------
 -- Identifiers --
@@ -769,8 +769,10 @@ instance FromJSON RosettaSignatureType where
 -- Signed by the client with the keypair associated with an address using the
 -- specified SignatureType.
 data RosettaSigningPayload = RosettaSigningPayload
-  { _rosettaSigningPayload_address :: Text
-  -- ^ The network-specific address of the account that should sign the payload.
+  { _rosettaSigningPayload_address :: Maybe Text
+  -- ^ DEPRECATED by account_identifier in v1.4.4.
+  --   The network-specific address of the account that should sign the payload.
+  , _rosettaSigningPayload_accountIdentifier :: Maybe AccountId
   , _rosettaSigningPayload_hexBytes :: Text
   -- ^ Hex-encoded payload to be signed.
   , _rosettaSigningPayload_signatureType :: Maybe RosettaSignatureType
@@ -780,17 +782,20 @@ data RosettaSigningPayload = RosettaSigningPayload
 
 instance ToJSON RosettaSigningPayload where
   toJSON p = toJSONOmitMaybe
-    [ "address" .= _rosettaSigningPayload_address p
-    , "hex_bytes" .= _rosettaSigningPayload_hexBytes p ]
-    [ maybePair "signature_type" (_rosettaSigningPayload_signatureType p) ]
+    [ "hex_bytes" .= _rosettaSigningPayload_hexBytes p ]
+    [ maybePair "address" (_rosettaSigningPayload_address p)
+    , maybePair "account_identifier" (_rosettaSigningPayload_accountIdentifier p)
+    , maybePair "signature_type" (_rosettaSigningPayload_signatureType p) ]
 
 instance FromJSON RosettaSigningPayload where
   parseJSON = withObject "RosettaSigningPayload" $ \o -> do
-    addr <- o .: "address"
+    someAddr <- o .: "address"
+    someAcct <- o .: "account_identifier"
     hex <- o .: "hex_bytes"
     typ <- o .: "signature_type"
     return $ RosettaSigningPayload
-      { _rosettaSigningPayload_address = addr
+      { _rosettaSigningPayload_address = someAddr
+      , _rosettaSigningPayload_accountIdentifier = someAcct
       , _rosettaSigningPayload_hexBytes = hex
       , _rosettaSigningPayload_signatureType = typ
       }
@@ -1278,20 +1283,26 @@ instance FromJSON ConstructionDeriveReq where
 
 -- Returns a network-specific address
 data ConstructionDeriveResp = ConstructionDeriveResp
-  { _constructionDeriveResp_address :: Text
+  { _constructionDeriveResp_address :: Maybe Text
+  -- ^ DEPRECATED by account_identifier in v1.4.4.
   -- ^ Address in network-specific format.
+  , _constructionDeriveResp_accountIdentifier :: Maybe AccountId
   , _constructionDeriveResp_metadata :: Maybe Object
   } deriving (Eq, Show, Generic, NFData)
 instance ToJSON ConstructionDeriveResp where
-  toJSON (ConstructionDeriveResp addr someMeta) = toJSONOmitMaybe
-    [ "address" .= addr ]
-    [ maybePair "metadata" someMeta ]
+  toJSON (ConstructionDeriveResp someAddr someAcct someMeta) = toJSONOmitMaybe
+    []
+    [ maybePair "address" someAddr
+    , maybePair "account_identifier" someAcct
+    , maybePair "metadata" someMeta ]
 instance FromJSON ConstructionDeriveResp where
   parseJSON = withObject "ConstructionDeriveResp" $ \o -> do
-    addr <- o .: "address"
+    someAddr <- o .:? "address"
+    someAcct <- o .:? "account_identifier"
     someMeta <- o .:? "metadata"
     return $ ConstructionDeriveResp
-      { _constructionDeriveResp_address = addr
+      { _constructionDeriveResp_address = someAddr
+      , _constructionDeriveResp_accountIdentifier = someAcct
       , _constructionDeriveResp_metadata = someMeta
       }
 
@@ -1414,25 +1425,31 @@ instance FromJSON ConstructionParseReq where
 -- and /construction/payloads
 data ConstructionParseResp = ConstructionParseResp
   { _constructionParseResp_operations :: [Operation]
-  , _constructionParseResp_signers :: [Text]
-  -- ^ All signers of a particular transaction. Is the transaction is
+  , _constructionParseResp_signers :: Maybe [Text]
+  -- ^ DEPRECATED by account_identifier_signers in v1.4.4.
+  --   All signers of a particular transaction. If the transaction is
   --   unsigned, it should be empty.
+  , _constructionParseResp_accountIdentifierSigners :: Maybe [AccountId]
   , _constructionParseResp_metadata :: Maybe Object
   } deriving (Eq, Show, Generic, NFData)
 
 instance ToJSON ConstructionParseResp where
   toJSON req = toJSONOmitMaybe
-    [ "operations" .= _constructionParseResp_operations req
-    , "signers" .= _constructionParseResp_signers req ]
-    [ maybePair "metadata" (_constructionParseResp_metadata req) ]
+    [ "operations" .= _constructionParseResp_operations req ]
+    [ maybePair "signers" (_constructionParseResp_signers req)
+    , maybePair "account_identifier_signers"
+        (_constructionParseResp_accountIdentifierSigners req)
+    , maybePair "metadata" (_constructionParseResp_metadata req) ]
 instance FromJSON ConstructionParseResp where
   parseJSON = withObject "ConstructionParseResp" $ \o -> do
     ops <- o .: "operations"
-    signers <- o .: "signers"
+    someSigners <- o .: "signers"
+    someAcctSigners <- o .: "account_identifier_signers"
     someMeta <- o .:? "metadata"
     return $ ConstructionParseResp
       { _constructionParseResp_operations = ops
-      , _constructionParseResp_signers = signers
+      , _constructionParseResp_signers = someSigners
+      , _constructionParseResp_accountIdentifierSigners = someAcctSigners
       , _constructionParseResp_metadata = someMeta
       }
 
