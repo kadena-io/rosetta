@@ -817,8 +817,8 @@ instance ToJSON RosettaSigningPayload where
 
 instance FromJSON RosettaSigningPayload where
   parseJSON = withObject "RosettaSigningPayload" $ \o -> do
-    someAddr <- o .: "address"
-    someAcct <- o .: "account_identifier"
+    someAddr <- o .:? "address"
+    someAcct <- o .:? "account_identifier"
     hex <- o .: "hex_bytes"
     typ <- o .: "signature_type"
     return $ RosettaSigningPayload
