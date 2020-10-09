@@ -817,8 +817,8 @@ instance ToJSON RosettaSigningPayload where
 
 instance FromJSON RosettaSigningPayload where
   parseJSON = withObject "RosettaSigningPayload" $ \o -> do
-    someAddr <- o .: "address"
-    someAcct <- o .: "account_identifier"
+    someAddr <- o .:? "address"
+    someAcct <- o .:? "account_identifier"
     hex <- o .: "hex_bytes"
     typ <- o .: "signature_type"
     return $ RosettaSigningPayload
@@ -1478,8 +1478,8 @@ instance ToJSON ConstructionParseResp where
 instance FromJSON ConstructionParseResp where
   parseJSON = withObject "ConstructionParseResp" $ \o -> do
     ops <- o .: "operations"
-    someSigners <- o .: "signers"
-    someAcctSigners <- o .: "account_identifier_signers"
+    someSigners <- o .:? "signers"
+    someAcctSigners <- o .:? "account_identifier_signers"
     someMeta <- o .:? "metadata"
     return $ ConstructionParseResp
       { _constructionParseResp_operations = ops
