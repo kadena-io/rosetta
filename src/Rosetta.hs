@@ -1478,8 +1478,8 @@ instance ToJSON ConstructionParseResp where
 instance FromJSON ConstructionParseResp where
   parseJSON = withObject "ConstructionParseResp" $ \o -> do
     ops <- o .: "operations"
-    someSigners <- o .: "signers"
-    someAcctSigners <- o .: "account_identifier_signers"
+    someSigners <- o .:? "signers"
+    someAcctSigners <- o .:? "account_identifier_signers"
     someMeta <- o .:? "metadata"
     return $ ConstructionParseResp
       { _constructionParseResp_operations = ops
