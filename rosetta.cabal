@@ -1,14 +1,20 @@
-cabal-version:      2.2
+cabal-version:      2.4
 name:               rosetta
 version:            1.0.0
 synopsis:           Haskell types for the Rosetta API.
 description:        Haskell types for the Rosetta API.
+copyright:          Copyright (c) 2019 - 2021, Kadena LLC
 license:            BSD-3-Clause
 license-file:       LICENSE
 author:             LindaOrtega
 maintainer:         linda.ortega2013@gmail.com
+homepage:           https://github.com/kadena-io/rosetta
 build-type:         Simple
 extra-source-files: CHANGELOG.md
+
+source-repository head
+    type: git
+    location: https://github.com/kadena-io/rosetta.git
 
 library
   hs-source-dirs:   src
@@ -23,7 +29,7 @@ library
 
   exposed-modules:  Rosetta
   build-depends:
-    , aeson   >=0.11.3.0 && <1.5
-    , base    >=4.11     && <5
+    , aeson   >=0.11.3.0
+    , base    >=4.11 && <5
     , deepseq >=1.4
     , text    >=1.2

@@ -1,0 +1,58 @@
+name: Build with Cabal
+
+on:
+  push:
+  schedule:
+    - cron: '0 9 * * *'
+
+jobs:
+
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        ghc: ['8.8.4', '8.10.5', '9.0.1']
+        cabal: ['3.4']
+        os: ['ubuntu-18.04', 'ubuntu-20.04', 'macOS-latest']
+
+    steps:
+
+    # Setup
+    - name: Checkout repository
+      uses: actions/checkout@v2
+    - name: Install GHC and Cabal
+      uses: haskell/actions/setup@v1.2.3
+      with:
+         ghc-version: ${{ matrix.ghc }}
+         cabal-version: ${{ matrix.cabal }}
+    - name: Configure project
+      run: |
+        cat > cabal.project.local <<EOF
+        package rosetta
+          documentation: True
+          benchmarks: True
+          tests: True
+        EOF
+    # Restore Packages from Caches
+    - uses: actions/cache@v2.1.6
+      name: Cache dist-newstyle
+      with:
+        path: |
+          ~/.cabal/packages
+          ~/.cabal/store
+          dist-newstyle
+        key: ${{ matrix.os }}-${{ matrix.ghc }}-0-cabal
+    # Build
+    - name: Update package database
+      run: cabal update
+    - name: Configure build
+      run: |
+        cabal build all --dry-run
+        cabal freeze
+    - name: Install build dependencies
+      run: cabal build --only-dependencies
+    - name: Build library
+      run: cabal build
+
