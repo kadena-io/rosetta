@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
@@ -87,6 +88,9 @@ module Rosetta
 
 import Control.DeepSeq (NFData)
 import Data.Aeson
+#if MIN_VERSION_aeson(2,0,0)
+import Data.Aeson.Key
+#endif
 import Data.Aeson.Types (Pair)
 import Data.Foldable (foldl')
 import Data.Text (Text)
@@ -1238,7 +1242,7 @@ instance FromJSON TransactionIdResp where
 --  the /construction/combine endpoint.
 -- NOTE: Contains the unsigned transaction blob returned by
 --       /construction/payloads and all required signatures needed to
---       create a network transaction. 
+--       create a network transaction.
 data ConstructionCombineReq = ConstructionCombineReq
   { _constructionCombineReq_networkIdentifier :: NetworkId
   , _constructionCombineReq_unsignedTransaction :: Text
@@ -1270,7 +1274,7 @@ newtype ConstructionCombineResp = ConstructionCombineResp
   { _constructionCombineResp_signedTransaction :: Text
   }
   deriving stock (Eq, Show, Generic)
-  deriving newtype (NFData) 
+  deriving newtype (NFData)
 instance ToJSON ConstructionCombineResp where
   toJSON (ConstructionCombineResp tx) =
     object ["signed_transaction" .= tx]
@@ -1294,7 +1298,7 @@ data ConstructionDeriveReq = ConstructionDeriveReq
   --   for validators vs. normal accounts).
   } deriving (Eq, Show, Generic, NFData)
 instance ToJSON ConstructionDeriveReq where
-  toJSON req = toJSONOmitMaybe 
+  toJSON req = toJSONOmitMaybe
     [ "network_identifier" .= _constructionDeriveReq_networkIdentifier req
     , "public_key" .= _constructionDeriveReq_publicKey req ]
     [ maybePair "metadata" (_constructionDeriveReq_metadata req) ]
@@ -1428,7 +1432,7 @@ instance FromJSON ConstructionMetadataResp where
 -- of the formulated unsigned or signed transaction.
 -- NOTE: This is run as a sanity check before signing (after
 --       /construction/payloads), but before broadcast (after
---       /construction/combine). 
+--       /construction/combine).
 data ConstructionParseReq = ConstructionParseReq
   { _constructionParseReq_networkIdentifier :: NetworkId
   , _constructionParseReq_signed :: Bool
@@ -1502,7 +1506,7 @@ instance FromJSON ConstructionParseResp where
 data ConstructionPayloadsReq = ConstructionPayloadsReq
   { _constructionPayloadsReq_networkIdentifier :: NetworkId
   , _constructionPayloadsReq_operations :: [Operation]
-  -- ^ NOTE: Subset of all operations of a transaction. 
+  -- ^ NOTE: Subset of all operations of a transaction.
   , _constructionPayloadsReq_metadata :: Maybe Object
   -- ^ Arbitrary metadata returned by the call to /construction/metadata.
   , _constructionPayloadsReq_publicKeys :: Maybe [RosettaPublicKey]
@@ -1878,4 +1882,6 @@ toJSONOmitMaybe defPairs li = object allPairs
   where
     allPairs = foldl' f defPairs li
     f acc (_, Nothing) = acc
-    f acc (t, Just p) = acc ++ [t .= p]
+#if MIN_VERSION_aeson(2,0,0)
+    f acc (t, Just p) = acc ++ [fromText t .= p]
+#endif
