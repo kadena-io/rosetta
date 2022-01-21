@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               rosetta
-version:            1.0.0
+version:            1.0.1
 synopsis:           Haskell types for the Rosetta API.
 description:        Haskell types for the Rosetta API.
 copyright:          Copyright (c) 2019 - 2021, Kadena LLC
