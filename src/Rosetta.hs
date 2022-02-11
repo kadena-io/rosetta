@@ -91,6 +91,8 @@ import Data.Aeson.Types (Pair)
 import Data.Foldable (foldl')
 import Data.Text (Text)
 import Data.Word (Word64)
+import Data.String (fromString)
+import qualified Data.Text as T
 
 import GHC.Generics (Generic)
 
@@ -117,7 +119,7 @@ data AccountId = AccountId
   , _accountId_metadata :: Maybe Object
   -- ^ If blockchain allows using a username model, the public key(s) owned
   --   by this address should be specified in metadata.
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON AccountId where
   toJSON (AccountId add someSub someMeta) =
@@ -157,7 +159,7 @@ data SubAccountId = SubAccountId
   -- ^ A unique cryptographic value or other identifier (i.e. bonded).
   , _subAccountId_metadata :: Maybe Object
   -- ^ Defined when an address is not sufficient to uniquely specify a sub-account.
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON SubAccountId where
   toJSON (SubAccountId add someMeta) =
@@ -185,7 +187,7 @@ data BlockId = BlockId
   { _blockId_index :: Word64
   -- ^ The block height
   , _blockId_hash :: Text
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON BlockId where
   toJSON (BlockId idx hsh) =
@@ -210,7 +212,7 @@ instance FromJSON BlockId where
 data PartialBlockId = PartialBlockId
   { _partialBlockId_index :: Maybe Word64
   , _partialBlockId_hash :: Maybe Text
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON PartialBlockId where
   toJSON (PartialBlockId somebhi somebhsh) =
@@ -236,7 +238,7 @@ newtype CoinId = CoinId
   --   In Bitcoin, this identifier would be "transaction_hash:index".
   }
   deriving (Generic)
-  deriving newtype (Eq, Show, NFData)
+  deriving newtype (Eq, Show, NFData, Ord)
 instance ToJSON CoinId where
   toJSON (CoinId i) =
     object ["identifier" .= i ]
@@ -256,7 +258,7 @@ data NetworkId = NetworkId
   , _networkId_subNetworkId :: Maybe SubNetworkId
   -- ^ Sharded state identifier used to query object on specific shard
   -- ^ Required for all sharded blockchains
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON NetworkId where
   toJSON (NetworkId bid netId someSubNetId) =
@@ -286,7 +288,7 @@ instance FromJSON NetworkId where
 data SubNetworkId = SubNetworkId
   { _subNetworkId_network :: Text
   , _subNetworkId_metadata :: Maybe Object
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON SubNetworkId where
   toJSON (SubNetworkId sid someMeta) =
@@ -323,7 +325,7 @@ data OperationId = OperationId
   --            transaction.
   -- ^ Network index should not be populated if there's no notion
   --   of an operation index in a blockchain (i.e. most account-based blockchains).
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON OperationId where
   toJSON (OperationId idx someNetIdx) =
@@ -353,7 +355,7 @@ newtype TransactionId = TransactionId
   --   should use the hash of the block as the identifier.
   }
   deriving stock (Eq, Show, Generic)
-  deriving newtype (NFData)
+  deriving newtype (NFData, Ord)
 
 instance ToJSON TransactionId where
   toJSON (TransactionId h) =
@@ -382,7 +384,7 @@ data Allow = Allow
   , _allow_historicalBalanceLookup :: Bool
   -- ^ Set to true if the implementation supports querying the
   --   balance of an account at any height in the past.
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON Allow where
   toJSON (Allow st typ err hist) =
@@ -420,7 +422,7 @@ data Amount = Amount
   -- ^ This Decimals value is used to convert an Amount.Value from atomic
   --   units (Satoshis) to standard units (Bitcoins).
   , _amount_metadata :: Maybe Object
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON Amount where
   toJSON (Amount v c someMeta) =
@@ -457,7 +459,7 @@ data Block = Block
   -- ^ Timestamp of the block in milliseconds since the Unix Epoch
   , _block_transactions :: [Transaction]
   , _block_metadata :: Maybe Object
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON Block where
   toJSON (Block bi pbi t ts someMeta) =
@@ -494,7 +496,7 @@ data Coin = Coin
   { _coin_coinIdentifier :: CoinId
   , _coin_amount :: Amount
   }
-  deriving (Eq, Show, Generic, NFData)
+  deriving (Eq, Show, Generic, NFData, Ord)
 instance ToJSON Coin where
   toJSON (Coin i amt) =
     object ["coin_identifier" .= i
@@ -514,7 +516,7 @@ instance FromJSON Coin where
 -- NOTE: Assumes that single Coin cannot be created or
 --       spent more than once.
 data CoinAction = CoinCreated | CoinSpent
-  deriving (Eq, Show, Generic, NFData)
+  deriving (Eq, Show, Generic, NFData, Ord)
 instance ToJSON CoinAction where
   toJSON CoinCreated = "coin_created"
   toJSON CoinSpent = "coin_spent"
@@ -536,7 +538,7 @@ instance FromJSON CoinAction where
 data CoinChange = CoinChange
   { _coinChange_coinIdentifier :: CoinId
   , _coinChange_coinAction :: CoinAction
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 instance ToJSON CoinChange where
   toJSON (CoinChange i act) =
     object [ "coin_identifier" .= i
@@ -567,7 +569,7 @@ data Currency = Currency
   -- ^ Any additiona information related to the currency itself.
   -- ^ Example: It would be useful to populate this object with the contract address of
   --            an ERC-20 token.
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON Currency where
   toJSON (Currency s d someMeta) =
@@ -606,7 +608,7 @@ data CurveType =
   -- ^ Curve with size of 64 bytes and format of:
   --   1st pk : Fq.t (32 bytes) + 2nd pk : Fq.t (32 bytes)
   -- Description: https://github.com/CodaProtocol/coda/blob/develop/rfcs/0038-rosetta-construction-api.md#marshal-keys
-  deriving (Show, Eq, Generic, NFData)
+  deriving (Show, Eq, Generic, NFData, Ord)
 
 instance ToJSON CurveType where
   toJSON CurveSecp256k1 = "secp256k1"
@@ -654,7 +656,7 @@ data Operation = Operation
   , _operation_coinChange :: Maybe CoinChange
   -- ^ Only supported for UTXO-based transfers.
   , _operation_metadata :: Maybe Object
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON Operation where
   toJSON op = toJSONOmitMaybe
@@ -700,7 +702,7 @@ data RosettaPublicKey = RosettaPublicKey
   --   CurveType.
   , _rosettaPublicKey_curveType :: CurveType
   -- ^ Type of cryptographic curve
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON RosettaPublicKey where
   toJSON (RosettaPublicKey hex typ) =
@@ -728,7 +730,7 @@ data RosettaSignature = RosettaSignature
   , _rosettaSignature_signatureType :: RosettaSignatureType
   , _rosettaSignature_hexBytes :: Text
   -- ^ hex-encoded signature of the signing payload.
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON RosettaSignature where
   toJSON sig = object
@@ -774,7 +776,7 @@ data RosettaSignatureType =
   --       implemented by O(1) Labs where both r and s are scalars encoded as 32-bytes
   --       little-endian values. Refer to Coda's signer reference implementation:
   --       https://github.com/CodaProtocol/signer-reference/blob/master/schnorr.ml#L92
-  deriving (Eq, Show, Generic, NFData)
+  deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON RosettaSignatureType where
   toJSON RosettaEcdsa = "ecdsa"
@@ -806,7 +808,7 @@ data RosettaSigningPayload = RosettaSigningPayload
   , _rosettaSigningPayload_signatureType :: Maybe RosettaSignatureType
   -- ^ Optionally populated if there is a restriction on the signature scheme that
   --   can be used to sign the payload.
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON RosettaSigningPayload where
   toJSON p = toJSONOmitMaybe
@@ -839,7 +841,7 @@ data Transaction = Transaction
   -- ^ NOTE: Transactions that are related to other transactions (i.e. cross-shard
   --   transactions) should include the transaction_identifier of these transaction
   --   in the metadata.
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON Transaction where
   toJSON (Transaction i ops someMeta) =
@@ -880,7 +882,7 @@ data RosettaError = RosettaError
   -- ^ Optional additional context specific to the request that
   --   caused the error in addition to the standard error message.
   -- ^ Example: Sample of the stack trace or impacted account.
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON RosettaError where
   toJSON (RosettaError c msg b details) = toJSONOmitMaybe
@@ -916,7 +918,7 @@ data OperationStatus = OperationStatus
   , _operationStatus_successful :: Bool
   -- ^ Whether an operation is considered successful
   -- ^ Set to true if the Operation.Amount should affect the Operation.Account
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON OperationStatus where
   toJSON (OperationStatus s b) =
@@ -938,7 +940,7 @@ instance FromJSON OperationStatus where
 data RosettaNodePeer = RosettaNodePeer
   { _peer_peerId :: Text
   , _peer_metadata :: Maybe Object
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON RosettaNodePeer where
   toJSON (RosettaNodePeer i someMeta) =
@@ -972,7 +974,7 @@ data SyncStatus = SyncStatus
   --   in the current stage.
   , _syncStatus_stage :: Maybe Text
   -- ^ The phase of the sync process (i.e. "header sync").
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON SyncStatus where
   toJSON s = toJSONOmitMaybe
@@ -1006,7 +1008,7 @@ data RosettaNodeVersion = RosettaNodeVersion
   , _version_metadata :: Maybe Object
   -- ^ Any other information that may be useful about versioning of dependent
   --   services
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON RosettaNodeVersion where
   toJSON (RosettaNodeVersion r n someMiddle someMeta) =
@@ -1051,7 +1053,7 @@ data AccountBalanceReq = AccountBalanceReq
   , _accountBalanceReq_blockId :: Maybe PartialBlockId
   -- ^ NOTE: when index and hash fields missing, it's assumed the client
   --         is making a request at the current block.
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON AccountBalanceReq where
   toJSON (AccountBalanceReq nid acct someb) =
@@ -1086,7 +1088,7 @@ data AccountBalanceResp = AccountBalanceResp
   -- ^ Account-based blockchains that utilize a nonce or sequence number should include
   --   that number in the metadata. This number could be unique to the identifier or global
   --   across the account address.
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON AccountBalanceResp where
   toJSON (AccountBalanceResp bi bals coins someMeta) =
@@ -1115,7 +1117,7 @@ instance FromJSON AccountBalanceResp where
 data BlockReq = BlockReq
  { _blockReq_networkId :: NetworkId
  , _blockReq_blockId :: PartialBlockId
- } deriving (Eq, Show, Generic, NFData)
+ } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON BlockReq where
   toJSON (BlockReq nid bid) =
@@ -1150,7 +1152,7 @@ data BlockResp = BlockResp
   --         returns transaction hashes). For blockchains with a lot of
   --         transaction in each block, this can be very useful as consumers
   --         can concurrently fetch all transactions returned.
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON BlockResp where
   toJSON (BlockResp someb someOtherTxs) =
@@ -1175,7 +1177,7 @@ data BlockTransactionReq = BlockTransactionReq
   { _blockTransactionReq_networkId :: NetworkId
   , _blockTransactionReq_blockId :: BlockId
   , _blockTransactionReq_transactionId :: TransactionId
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON BlockTransactionReq where
   toJSON (BlockTransactionReq nid bid tid) =
@@ -1200,7 +1202,7 @@ newtype BlockTransactionResp = BlockTransactionResp
   { _blockTransactionResp_transaction :: Transaction
   }
   deriving stock (Eq, Show, Generic)
-  deriving newtype (NFData)
+  deriving newtype (NFData, Ord)
 
 instance ToJSON BlockTransactionResp where
   toJSON (BlockTransactionResp tx) = object [ "transaction" .= tx ]
@@ -1217,7 +1219,7 @@ instance FromJSON BlockTransactionResp where
 data TransactionIdResp = TransactionIdResp
   { _transactionIdRes_transactionIdentifier :: TransactionId
   , _transactionIdRes_metadata :: Maybe Object
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON TransactionIdResp where
   toJSON (TransactionIdResp i someMeta) = toJSONOmitMaybe
@@ -1245,7 +1247,7 @@ data ConstructionCombineReq = ConstructionCombineReq
   -- ^ Unsigned transaction blob returned by /construction/payloads
   , _constructionCombineReq_signatures :: [RosettaSignature]
   -- ^ All required signatures needed to create a network transaction
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON ConstructionCombineReq where
   toJSON (ConstructionCombineReq netId unsignedTx sigs) =
@@ -1270,7 +1272,7 @@ newtype ConstructionCombineResp = ConstructionCombineResp
   { _constructionCombineResp_signedTransaction :: Text
   }
   deriving stock (Eq, Show, Generic)
-  deriving newtype (NFData) 
+  deriving newtype (NFData, Ord) 
 instance ToJSON ConstructionCombineResp where
   toJSON (ConstructionCombineResp tx) =
     object ["signed_transaction" .= tx]
@@ -1292,7 +1294,7 @@ data ConstructionDeriveReq = ConstructionDeriveReq
   , _constructionDeriveReq_metadata :: Maybe Object
   -- ^ Some blockchains allow for multiple address types (i.e. different address
   --   for validators vs. normal accounts).
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 instance ToJSON ConstructionDeriveReq where
   toJSON req = toJSONOmitMaybe 
     [ "network_identifier" .= _constructionDeriveReq_networkIdentifier req
@@ -1316,7 +1318,7 @@ data ConstructionDeriveResp = ConstructionDeriveResp
   -- ^ Address in network-specific format.
   , _constructionDeriveResp_accountIdentifier :: Maybe AccountId
   , _constructionDeriveResp_metadata :: Maybe Object
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 instance ToJSON ConstructionDeriveResp where
   toJSON (ConstructionDeriveResp someAddr someAcct someMeta) = toJSONOmitMaybe
     []
@@ -1341,7 +1343,7 @@ instance FromJSON ConstructionDeriveResp where
 data ConstructionHashReq = ConstructionHashReq
   { _constructionHashReq_networkIdentifier :: NetworkId
   , _constructionHashReq_signedTransaction :: Text
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 instance ToJSON ConstructionHashReq where
   toJSON (ConstructionHashReq netId tx) =
     object [ "network_identifier" .= netId
@@ -1375,7 +1377,7 @@ data ConstructionMetadataReq = ConstructionMetadataReq
   , _constructionMetadataReq_publicKeys :: Maybe [RosettaPublicKey]
   -- ^ Optionally, the request can also include an array of PublicKeys
   -- associated with the AccountIdentifiers returned in ConstructionPreprocessResponse.
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON ConstructionMetadataReq where
   toJSON (ConstructionMetadataReq nid someopts somePubKeys) =
@@ -1409,7 +1411,7 @@ data ConstructionMetadataResp = ConstructionMetadataResp
   --         suggested fee.
   -- ^ NOTE: Suggested fee is an array in case fee payment must occur in multiple
   --         currencies.
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON ConstructionMetadataResp where
   toJSON (ConstructionMetadataResp m fees) =
@@ -1437,7 +1439,7 @@ data ConstructionParseReq = ConstructionParseReq
   -- ^ This must be either the unsigned transaction blob returned
   --   by /construction/payloads or the signed transaction blob returned by
   --   /construction/combine.
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON ConstructionParseReq where
   toJSON req = object
@@ -1466,7 +1468,7 @@ data ConstructionParseResp = ConstructionParseResp
   --   unsigned, it should be empty.
   , _constructionParseResp_accountIdentifierSigners :: Maybe [AccountId]
   , _constructionParseResp_metadata :: Maybe Object
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON ConstructionParseResp where
   toJSON req = toJSONOmitMaybe
@@ -1508,7 +1510,7 @@ data ConstructionPayloadsReq = ConstructionPayloadsReq
   , _constructionPayloadsReq_publicKeys :: Maybe [RosettaPublicKey]
   -- ^ Optionally, the request can also include an array of PublicKeys
   -- associated with the AccountIdentifiers returned in ConstructionPreprocessResponse.
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON ConstructionPayloadsReq where
   toJSON req = toJSONOmitMaybe
@@ -1538,7 +1540,7 @@ data ConstructionPayloadsResp = ConstructionPayloadsResp
   --         a collection of signatures.
   , _constructionPayloadsResp_payloads :: [RosettaSigningPayload]
   -- ^ An array of payloads that must be signed by the caller
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON ConstructionPayloadsResp where
   toJSON req = object
@@ -1584,7 +1586,7 @@ data ConstructionPreprocessReq = ConstructionPreprocessReq
   -- ^ NOTE: If both a max fee and a suggested fee multiplier is provided,
   --         the max fee will set an upper bound on the suggested fee
   --         (regardless of the multiplier provided).
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON ConstructionPreprocessReq where
   toJSON req = toJSONOmitMaybe
@@ -1624,7 +1626,7 @@ data ConstructionPreprocessResp = ConstructionPreprocessResp
   -- associated with the desired PublicKeys. If it is not necessary to retrieve any PublicKeys
   -- for construction, required_public_keys should be omitted.
   }
-  deriving (Eq, Show, Generic, NFData)
+  deriving (Eq, Show, Generic, NFData, Ord)
 instance ToJSON ConstructionPreprocessResp where
   toJSON (ConstructionPreprocessResp opts someAccts) =
     toJSONOmitMaybe []
@@ -1646,7 +1648,7 @@ data ConstructionSubmitReq = ConstructionSubmitReq
   { _constructionSubmitReq_networkId :: NetworkId
   , _constructionSubmitReq_signedTransaction :: Text
   -- ^ The signed transaction
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON ConstructionSubmitReq where
   toJSON (ConstructionSubmitReq nid ts) =
@@ -1671,7 +1673,7 @@ newtype MempoolResp = MempoolResp
   { _mempoolResp_transactionIds :: [TransactionId]
   }
   deriving stock (Eq, Show, Generic)
-  deriving newtype (NFData)
+  deriving newtype (NFData, Ord)
 
 instance ToJSON MempoolResp where
   toJSON (MempoolResp txs) =
@@ -1689,7 +1691,7 @@ instance FromJSON MempoolResp where
 data MempoolTransactionReq = MempoolTransactionReq
   { _mempoolTransactionReq_networkId :: NetworkId
   , _mempoolTransactionReq_transactionId :: TransactionId
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON MempoolTransactionReq where
   toJSON (MempoolTransactionReq nid tid) =
@@ -1712,7 +1714,7 @@ instance FromJSON MempoolTransactionReq where
 data MempoolTransactionResp = MempoolTransactionResp
   { _mempoolTransactionResp_transaction :: Transaction
   , _mempoolTransactionResp_metadata :: Maybe Object
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON MempoolTransactionResp where
   toJSON (MempoolTransactionResp tx someMeta) =
@@ -1739,7 +1741,7 @@ newtype MetadataReq = MetadataReq
   { _metadataReq_metadata :: Maybe Object
   }
   deriving stock (Eq, Show, Generic)
-  deriving newtype (NFData)
+  deriving newtype (NFData, Ord)
 
 instance ToJSON MetadataReq where
   toJSON (MetadataReq someMeta) =
@@ -1759,7 +1761,7 @@ newtype NetworkListResp = NetworkListResp
   { _networkListResp_networkIds :: [NetworkId]
   }
   deriving stock (Eq, Show, Generic)
-  deriving newtype (NFData)
+  deriving newtype (NFData, Ord)
 
 instance ToJSON NetworkListResp where
   toJSON (NetworkListResp netIds) =
@@ -1777,7 +1779,7 @@ instance FromJSON NetworkListResp where
 data NetworkOptionsResp = NetworkOptionsResp
   { _networkOptionsResp_version :: RosettaNodeVersion
   , _networkOptionsResp_allow :: Allow
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON NetworkOptionsResp where
   toJSON (NetworkOptionsResp v allow) =
@@ -1799,7 +1801,7 @@ instance FromJSON NetworkOptionsResp where
 data NetworkReq = NetworkReq
   { _networkReq_networkId :: NetworkId
   , _networkReq_metadata :: Maybe Object
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON NetworkReq where
   toJSON (NetworkReq nid someMeta) =
@@ -1836,7 +1838,7 @@ data NetworkStatusResp = NetworkStatusResp
   --   If omitted, it may appear that the implementation is stuck syncing and
   --   needs to be terminated.
   , _networkStatusResp_peers :: [RosettaNodePeer]
-  } deriving (Eq, Show, Generic, NFData)
+  } deriving (Eq, Show, Generic, NFData, Ord)
 
 instance ToJSON NetworkStatusResp where
   toJSON (NetworkStatusResp blockId time genesis someOldest someSync p) =
@@ -1877,5 +1879,7 @@ toJSONOmitMaybe :: [Pair] -> [(Text, Maybe Value)] -> Value
 toJSONOmitMaybe defPairs li = object allPairs
   where
     allPairs = foldl' f defPairs li
+    f :: [Pair] -> (Text, Maybe Value) -> [Pair]
     f acc (_, Nothing) = acc
-    f acc (t, Just p) = acc ++ [t .= p]
+    f acc (t, Just p) = acc ++ [key .= p]
+      where key = fromString $ T.unpack t
