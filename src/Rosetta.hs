@@ -93,6 +93,7 @@ import Data.Text (Text)
 import Data.Word (Word64)
 import Data.String (fromString)
 import qualified Data.Text as T
+import Data.Hashable (Hashable)
 
 import GHC.Generics (Generic)
 
@@ -119,7 +120,7 @@ data AccountId = AccountId
   , _accountId_metadata :: Maybe Object
   -- ^ If blockchain allows using a username model, the public key(s) owned
   --   by this address should be specified in metadata.
-  } deriving (Eq, Show, Generic, NFData, Ord)
+  } deriving (Eq, Show, Generic, NFData, Ord, Hashable)
 
 instance ToJSON AccountId where
   toJSON (AccountId add someSub someMeta) =
@@ -159,7 +160,7 @@ data SubAccountId = SubAccountId
   -- ^ A unique cryptographic value or other identifier (i.e. bonded).
   , _subAccountId_metadata :: Maybe Object
   -- ^ Defined when an address is not sufficient to uniquely specify a sub-account.
-  } deriving (Eq, Show, Generic, NFData, Ord)
+  } deriving (Eq, Show, Generic, NFData, Ord, Hashable)
 
 instance ToJSON SubAccountId where
   toJSON (SubAccountId add someMeta) =
